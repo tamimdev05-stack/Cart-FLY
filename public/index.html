@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mailflux — Private & Secure Inboxes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient Atmospheric Lighting -->
+  <div class="ambient-glow orb-main"></div>
+  <div class="ambient-glow orb-purple"></div>
+  
+  <!-- Glowing Bottom-Left Aurora Wave -->
+  <div class="aurora-wave-bottom-left"></div>
+
+  <div class="app-layout">
+    
+    <!-- FROSTED LIQUID GLASS NAVBAR -->
+    <header class="navbar">
+      <div class="nav-brand">
+        <img src="logo.png" alt="MailFlux" class="brand-logo-img" />
+      </div>
+
+      <div class="nav-right">
+        <!-- Logged In Profile Avatar Button -->
+        <div id="profileContainer" class="profile-container hidden">
+          <button id="profileBtn" class="profile-avatar-btn" aria-expanded="false" title="Account settings">
+            <div class="avatar-circle" id="navAvatar">U</div>
+            <span class="profile-username" id="navUsername">User</span>
+            <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <!-- FROSTED LIQUID GLASS PROFILE DROPDOWN -->
+          <div id="profileDropdown" class="profile-dropdown hidden">
+            <!-- Account Identity -->
+            <div class="dropdown-user-card">
+              <div class="dropdown-avatar-circle" id="dropdownAvatar">U</div>
+              <div class="dropdown-user-details">
+                <div class="dropdown-email" id="dropdownEmail">user@domain.com</div>
+                <div class="dropdown-status-badge">
+                  <span class="status-dot"></span> Active
+                </div>
+              </div>
+            </div>
+
+            <!-- Copy Email Button -->
+            <div class="dropdown-copy-section">
+              <button id="dropdownCopyEmailBtn" class="btn-dropdown-copy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span id="dropdownCopyEmailText">Copy Email Address</span>
+              </button>
+            </div>
+
+            <!-- Password Card -->
+            <div class="dropdown-password-card">
+              <div class="pwd-header">
+                <span class="pwd-label">Password</span>
+                <button id="dropdownTogglePassBtn" class="btn-text-action">Show</button>
+              </div>
+              <div class="pwd-value-row">
+                <span id="dropdownPasswordText" class="pwd-masked">••••••••••••</span>
+                <button id="dropdownCopyPassBtn" class="btn-copy-icon" title="Copy password">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Switch Saved Mailboxes -->
+            <div class="dropdown-section">
+              <div class="dropdown-section-header">
+                <span>Saved Mailboxes</span>
+                <span id="savedCountBadge" class="count-pill">0</span>
+              </div>
+              <div id="dropdownRecentList" class="dropdown-recent-list"></div>
+            </div>
+
+            <!-- Menu Actions -->
+            <div class="dropdown-menu-actions">
+              <button id="dropdownCreateNewBtn" class="dropdown-menu-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="16"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+                <span>New Mailbox</span>
+              </button>
+
+              <button id="dropdownLoginOtherBtn" class="dropdown-menu-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                  <polyline points="10 17 15 12 10 7"></polyline>
+                  <line x1="15" y1="12" x2="3" y2="12"></line>
+                </svg>
+                <span>Switch Account</span>
+              </button>
+
+              <div class="menu-divider"></div>
+
+              <button id="dropdownSignOutBtn" class="dropdown-menu-item text-danger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN BODY -->
+    <main class="main-body">
+      
+      <!-- EXACT PRO SPLIT HERO VIEW (MATCHING USER REFERENCE DESIGN) -->
+      <section id="mandatoryAuthView" class="pro-split-hero-view">
+        <div class="split-hero-container">
+          
+          <!-- LEFT HERO CONTENT -->
+          <div class="hero-content-col">
+            <div class="hero-eyebrow">FAST &bull; SECURE &bull; PRIVATE</div>
+            <h1 class="hero-main-title">
+              Your Inbox,<br />
+              <span class="gradient-text">On Your Terms.</span>
+            </h1>
+            <p class="hero-description">
+              Get a secure and reliable email experience with automated, high-speed private inboxes engineered for ultimate control.
+            </p>
+
+            <!-- 3 Features List with Glass Icon Badges -->
+            <div class="hero-features-list">
+              <div class="hero-feature-card">
+                <div class="feature-icon-badge">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                </div>
+                <div class="feature-text">
+                  <h4>Instant Access</h4>
+                  <p>Get your inbox in seconds.</p>
+                </div>
+              </div>
+
+              <div class="hero-feature-card">
+                <div class="feature-icon-badge">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  </svg>
+                </div>
+                <div class="feature-text">
+                  <h4>Privacy First</h4>
+                  <p>Keep your real email safe.</p>
+                </div>
+              </div>
+
+              <div class="hero-feature-card">
+                <div class="feature-icon-badge">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+                <div class="feature-text">
+                  <h4>No Tracking</h4>
+                  <p>Browse and sign up without worry.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT CARD COLUMN WITH FLOATING 3D GLASS ENVELOPES -->
+          <div class="hero-card-col">
+            
+            <!-- 3D Floating Glass Envelope 1 (Top-Right) -->
+            <div class="floating-glass-envelope env-top">
+              <div class="envelope-glow-aura"></div>
+              <div class="glass-envelope-shape">
+                <svg viewBox="0 0 140 92" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="136" height="88" rx="14" fill="rgba(37, 99, 235, 0.16)" stroke="url(#envStroke)" stroke-width="2.2"/>
+                  <path d="M4 6L70 56L136 6" stroke="url(#envStroke)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <defs>
+                    <linearGradient id="envStroke" x1="0" y1="0" x2="140" y2="92" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#38BDF8"/>
+                      <stop offset="0.6" stop-color="#818CF8"/>
+                      <stop offset="1" stop-color="#C084FC"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <div class="envelope-speed-line line-1"></div>
+              <div class="envelope-speed-line line-2"></div>
+            </div>
+
+            <!-- 3D Floating Glass Envelope 2 (Bottom-Right, Blurred) -->
+            <div class="floating-glass-envelope env-bottom">
+              <div class="glass-envelope-shape blurred">
+                <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="116" height="76" rx="12" fill="rgba(37, 99, 235, 0.12)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2"/>
+                  <path d="M3 6L60 48L117 6" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- THE ULTRA GLASS CARD -->
+            <div class="pro-auth-card glass-panel">
+              <div class="card-logo-wrap">
+                <img src="logo.png" alt="MailFlux" class="card-logo-img" />
+              </div>
+
+              <!-- Card Dynamic Header -->
+              <h2 id="authCardTitle" class="card-headline">Welcome Back</h2>
+              <p id="authCardSubtitle" class="card-subhead">Sign in to your account</p>
+
+              <!-- SIGN IN FORM (DEFAULT ACTIVE) -->
+              <form id="landingLoginForm" class="auth-form-pane active">
+                <div class="input-field-group">
+                  <div class="input-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                    </svg>
+                  </div>
+                  <input type="email" id="loginAddress" placeholder="Email address" required autocomplete="email" />
+                </div>
+
+                <div class="input-field-group">
+                  <div class="input-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                  </div>
+                  <input type="password" id="loginPass" placeholder="Password" required autocomplete="current-password" />
+                  <button type="button" id="toggleLoginPassBtn" class="btn-eye-toggle" title="Toggle password visibility">
+                    <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Remember Me & Forgot Password Row -->
+                <div class="form-aux-row">
+                  <label class="checkbox-container">
+                    <input type="checkbox" id="rememberMeCheck" checked />
+                    <span class="custom-check">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </span>
+                    <span class="checkbox-text">Remember me</span>
+                  </label>
+                  <a href="javascript:void(0)" id="btnForgotPass" class="subtle-link">Forgot password?</a>
+                </div>
+
+                <!-- Gradient Submit Button -->
+                <button type="submit" id="btnSubmitLogin" class="btn-gradient-submit">
+                  <span>Sign in</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </button>
+              </form>
+
+              <!-- CREATE ACCOUNT FORM -->
+              <form id="landingCreateForm" class="auth-form-pane">
+                <div class="input-field-group domain-select-group">
+                  <div class="input-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                  </div>
+                  <input type="text" id="regUsername" placeholder="Choose username" required autocomplete="username" />
+                  <span class="addon-at-sym">@</span>
+                  <select id="regDomainSelect" required></select>
+                </div>
+
+                <div class="input-field-group">
+                  <div class="input-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                  </div>
+                  <input type="password" id="regPassword" placeholder="Set password (min 6 chars)" required minlength="6" autocomplete="new-password" />
+                  <button type="button" id="toggleRegPassBtn" class="btn-eye-toggle" title="Toggle password visibility">
+                    <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+
+                <button type="submit" id="btnSubmitCreate" class="btn-gradient-submit">
+                  <span>Create Account</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </button>
+              </form>
+
+              <!-- Bottom Switch Link (No Google Button, purely clean & humanized) -->
+              <div class="card-footer-switch">
+                <span id="authSwitchPrompt">Don't have an account?</span>
+                <button type="button" id="btnSwitchAuthMode" class="btn-link-action">Create one</button>
+              </div>
+
+              <!-- Hidden Tab Anchors for app.js state compatibility -->
+              <div style="display:none;">
+                <button id="tabSwitchCreate" type="button"></button>
+                <button id="tabSwitchLogin" type="button"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACTIVE INBOX WORKSPACE (SHOWN WHEN LOGGED IN) -->
+      <section id="inboxWorkspace" class="inbox-workspace hidden">
+        
+        <!-- FROSTED SIDEBAR -->
+        <aside class="inbox-sidebar glass-sidebar">
+          <div class="sidebar-controls">
+            <div class="sidebar-title-bar">
+              <div class="title-with-count">
+                <h3 class="inbox-heading">Inbox</h3>
+                <span id="unreadBadge" class="badge-count">0</span>
+              </div>
+              <button id="manualRefreshBtn" class="btn-subtle-refresh" title="Refresh inbox">
+                <svg id="manualRefreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="search-bar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="filterMessagesInput" placeholder="Search" />
+            </div>
+          </div>
+
+          <!-- Message List -->
+          <div id="messagesContainer" class="messages-container"></div>
+        </aside>
+
+        <!-- READER PANE -->
+        <section class="inbox-reader">
+          <!-- Empty State (No message selected) -->
+          <div id="readerPlaceholder" class="reader-placeholder">
+            <div class="reader-empty-card">
+              <div class="empty-icon-halo">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                </svg>
+              </div>
+              <h3>Select a Conversation</h3>
+              <p>Choose an email from the left sidebar to read its content.</p>
+            </div>
+          </div>
+
+          <!-- Active Message Pane -->
+          <div id="readerPane" class="reader-pane hidden">
+            <div class="reader-header">
+              <div class="reader-header-top">
+                <h1 id="readerSubject">Subject</h1>
+                <button id="btnDeleteMessage" class="btn-delete-msg" title="Delete message">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Delete</span>
+                </button>
+              </div>
+
+              <div class="reader-sender-box">
+                <div class="sender-avatar" id="senderAvatar">S</div>
+                <div class="sender-info">
+                  <div class="sender-line">
+                    <span id="senderName" class="sender-name">Sender</span>
+                    <span id="senderEmail" class="sender-email">&lt;sender@domain.com&gt;</span>
+                  </div>
+                  <div class="recipient-line">
+                    <span>To: <span id="recipientAddress">user@domain.com</span></span>
+                    <span class="dot-separator">·</span>
+                    <span id="messageDate">Time</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="reader-tabs">
+                <button class="reader-tab active" data-tab="preview">Formatted</button>
+                <button class="reader-tab" data-tab="text">Plain Text</button>
+                <button class="reader-tab" data-tab="source">Headers</button>
+              </div>
+            </div>
+
+            <div class="reader-body">
+              <div id="panePreview" class="body-pane active">
+                <iframe id="emailFrame" sandbox="allow-same-origin" title="Email content"></iframe>
+              </div>
+              <div id="paneText" class="body-pane">
+                <pre id="textPreviewBody"></pre>
+              </div>
+              <div id="paneSource" class="body-pane">
+                <pre id="sourcePreviewBody"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <!-- POPUP AUTH MODAL (APPLE LIQUID GLASS) -->
+  <div id="authModal" class="modal-overlay hidden">
+    <div class="modal-card glass-modal">
+      <div class="modal-glow-top"></div>
+      
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <h3 id="modalTitle">New Mailbox</h3>
+          <p id="modalSubtitle" class="modal-subhead">Set up an instant private address</p>
+        </div>
+        <button id="modalCloseBtn" class="btn-close-modal" title="Close">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Segmented Pill Tabs -->
+      <div class="modal-tabs-wrapper">
+        <div class="modal-segmented-control">
+          <button type="button" id="modalTabCreate" class="modal-tab-btn active">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            <span>New Mailbox</span>
+          </button>
+          <button type="button" id="modalTabLogin" class="modal-tab-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <polyline points="10 17 15 12 10 7"></polyline>
+              <line x1="15" y1="12" x2="3" y2="12"></line>
+            </svg>
+            <span>Switch Account</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-content">
+        <!-- MODAL CREATE FORM -->
+        <form id="modalCreateForm" class="modal-form active">
+          <!-- Username & Domain Group -->
+          <div class="input-field-group domain-select-group">
+            <div class="input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <input type="text" id="modalRegUsername" placeholder="Choose username" required autocomplete="username" />
+            <span class="addon-at-sym">@</span>
+            <select id="modalRegDomainSelect" required></select>
+          </div>
+
+          <!-- Password Group -->
+          <div class="input-field-group">
+            <div class="input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <input type="password" id="modalRegPassword" placeholder="Set password (min 6 chars)" required minlength="6" autocomplete="new-password" />
+            <button type="button" id="modalToggleRegPass" class="btn-eye-toggle" title="Toggle password visibility">
+              <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+
+          <button type="submit" id="modalSubmitCreateBtn" class="btn-gradient-submit">
+            <span>Create Mailbox</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+
+        <!-- MODAL LOGIN FORM -->
+        <form id="modalLoginForm" class="modal-form">
+          <!-- Email Group -->
+          <div class="input-field-group">
+            <div class="input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <input type="email" id="modalLoginEmail" placeholder="address@domain.com" required autocomplete="username" />
+          </div>
+
+          <!-- Password Group -->
+          <div class="input-field-group">
+            <div class="input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <input type="password" id="modalLoginPass" placeholder="Enter password" required autocomplete="current-password" />
+            <button type="button" id="modalToggleLoginPass" class="btn-eye-toggle" title="Toggle password visibility">
+              <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+
+          <button type="submit" id="modalSubmitLoginBtn" class="btn-gradient-submit">
+            <span>Switch Account</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
