@@ -1,4 +1,4 @@
-// Cloudflare Worker - Mailflux API & Static Assets Handler
+// Cloudflare Worker - Mailflux API & Static Assets Handler (v1.0.1)
 // Compatible with both Cloudflare Workers (wrangler deploy) and Cloudflare Pages
 
 const BASE_URL = 'https://api.mail.tm';
