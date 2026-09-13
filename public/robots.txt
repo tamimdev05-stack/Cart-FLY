@@ -1,0 +1,8 @@
+# Robots.txt for Mailflux
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /.netlify/
+
+# Sitemap location
+Sitemap: https://mailflux.app/sitemap.xml
