@@ -1456,6 +1456,17 @@ body {
   border-radius: 12px;
 }
 
+#textPreviewBody a {
+  color: #6366f1;
+  text-decoration: underline;
+  word-break: break-all;
+  transition: color 150ms ease;
+}
+
+#textPreviewBody a:hover {
+  color: #818cf8;
+}
+
 /* --------------------------------------------------------------------------
    MODAL DIALOG (APPLE LIQUID GLASS DIALOG SUITE)
    -------------------------------------------------------------------------- */

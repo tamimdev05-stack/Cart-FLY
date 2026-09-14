@@ -788,15 +788,16 @@ async function loadMessage(id) {
     recipientAddress.textContent = msg.to?.map(t => t.address).join(', ') || currentAccount.address;
     messageDate.textContent = new Date(msg.createdAt).toLocaleString();
 
-    let html = msg.html && msg.html.length > 0 ? msg.html.join('') : '';
+    let html = msg.html && msg.html.length > 0 ? (Array.isArray(msg.html) ? msg.html.join('') : msg.html) : '';
     if (!html && msg.text) {
-      html = `<pre style="font-family: sans-serif; white-space: pre-wrap; padding: 20px; color: #222;">${escapeHtml(msg.text)}</pre>`;
+      html = `<pre style="font-family: sans-serif; white-space: pre-wrap; padding: 20px; color: #222; word-break: break-word;">${linkify(escapeHtml(msg.text))}</pre>`;
     }
 
-    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+    const processedHtml = prepareEmailHtml(html);
+    const blob = new Blob([processedHtml], { type: 'text/html; charset=utf-8' });
     emailFrame.src = URL.createObjectURL(blob);
 
-    textPreviewBody.textContent = msg.text || '(No plain text body)';
+    textPreviewBody.innerHTML = linkify(escapeHtml(msg.text || '(No plain text body)'));
     sourcePreviewBody.textContent = JSON.stringify(msg, null, 2);
 
   } catch(err) {
@@ -875,6 +876,63 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function linkify(text) {
+  if (!text) return '';
+  const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
+  return text.replace(urlRegex, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  });
+}
+
+function prepareEmailHtml(rawHtml) {
+  if (!rawHtml) return '';
+
+  let processed = rawHtml;
+
+  // 1. Inject <base target="_blank"> to ensure any link defaults to opening in a new tab
+  const baseTag = '<base target="_blank">';
+
+  // 2. Client script inside iframe to guarantee all anchor clicks open in a new tab
+  const clickScript = `
+    <script>
+      (function() {
+        function enforceNewTab() {
+          var links = document.getElementsByTagName('a');
+          for (var i = 0; i < links.length; i++) {
+            links[i].setAttribute('target', '_blank');
+            links[i].setAttribute('rel', 'noopener noreferrer');
+          }
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', enforceNewTab);
+        } else {
+          enforceNewTab();
+        }
+        document.addEventListener('click', function(e) {
+          var a = e.target.closest ? e.target.closest('a') : null;
+          if (a && a.href && !a.href.startsWith('javascript:')) {
+            a.setAttribute('target', '_blank');
+            a.setAttribute('rel', 'noopener noreferrer');
+          }
+        }, true);
+      })();
+    <\/script>
+  `;
+
+  if (/<head[^>]*>/i.test(processed)) {
+    processed = processed.replace(/<head[^>]*>/i, `$&${baseTag}${clickScript}`);
+  } else if (/<html[^>]*>/i.test(processed)) {
+    processed = processed.replace(/<html[^>]*>/i, `$&<head>${baseTag}${clickScript}</head>`);
+  } else {
+    processed = `<!DOCTYPE html><html><head>${baseTag}${clickScript}</head><body>${processed}</body></html>`;
+  }
+
+  // Also replace any existing target="_self" or target="_parent" or target="_top" with target="_blank"
+  processed = processed.replace(/target\s*=\s*["'](?:_self|_parent|_top)["']/gi, 'target="_blank"');
+
+  return processed;
 }
 
 function showToast(msg) {
