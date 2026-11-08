@@ -264,6 +264,8 @@ function setupEventHandlers() {
     try {
       await createAccount(user, dom, pass);
       authModal.classList.add('hidden');
+    } catch(err) {
+      showToast(err.message || 'Failed to create mailbox');
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -286,6 +288,8 @@ function setupEventHandlers() {
     try {
       await loginAccount(addr, pass);
       authModal.classList.add('hidden');
+    } catch(err) {
+      showToast(err.message || 'Login failed. Check your password.');
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -336,45 +340,39 @@ async function loadDomains(forceFresh = false) {
 }
 
 async function createAccount(username, domain, password) {
-  try {
-    const res = await fetch('/api/create-account', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, domain, password })
-    });
+  const res = await fetch('/api/create-account', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, domain, password })
+  });
 
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'Failed to create account');
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Failed to create account');
 
-    currentAccount = data.account;
-    saveRecentAccount(currentAccount);
-    renderActiveSession();
-    startSyncLoop();
-    showToast('Mailbox ready: ' + currentAccount.address);
-  } catch(err) {
-    alert('Account creation failed: ' + err.message);
-  }
+  currentAccount = data.account;
+  saveRecentAccount(currentAccount);
+  renderActiveSession();
+  startSyncLoop();
+  showToast('Mailbox ready: ' + currentAccount.address);
+  return currentAccount;
 }
 
 async function loginAccount(address, password) {
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, password })
-    });
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, password })
+  });
 
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'Login failed');
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Login failed');
 
-    currentAccount = data.account;
-    saveRecentAccount(currentAccount);
-    renderActiveSession();
-    startSyncLoop();
-    showToast('Signed in successfully!');
-  } catch(err) {
-    alert('Login failed: ' + err.message);
-  }
+  currentAccount = data.account;
+  saveRecentAccount(currentAccount);
+  renderActiveSession();
+  startSyncLoop();
+  showToast('Signed in successfully!');
+  return currentAccount;
 }
 
 function renderActiveSession() {
@@ -627,6 +625,25 @@ function setupLandingUserAuth() {
       }
     });
   }
+
+  // Forgot password handler
+  const siForgot = $('#si-forgot');
+  if (siForgot) {
+    siForgot.addEventListener('click', (e) => {
+      e.preventDefault();
+      showToast('Your cloud mailbox is permanent. Forgot password? Create a new mailbox anytime!');
+    });
+  }
+
+  // Swap links ("Create one" / "Sign in")
+  $$('.swap a').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = (a.getAttribute('href') || '').replace('#', '');
+      location.hash = target;
+      window.showLandingTab(target);
+    });
+  });
 
   // Submit Sign In Form
   if (forms.signin) {
