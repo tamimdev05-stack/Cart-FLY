@@ -115,20 +115,22 @@ const composeBodyInput = document.getElementById('composeBodyInput');
 const composeSubmitBtn = document.getElementById('composeSubmitBtn');
 
 // Initialization
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   purgeExpiredLocalMails();
   setupEventHandlers();
-  await loadDomains();
 
+  // Instant session restore: 0ms delay, zero flash of login screen
   const saved = localStorage.getItem('mailtm_current_account');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.address && parsed.password && parsed.token) {
         currentAccount = parsed;
+        document.documentElement.classList.add('has-session');
         renderActiveSession();
         startSyncLoop();
-        showToast('Welcome back, ' + getShortName(currentAccount.address));
+        // Load domains in background without blocking UI
+        loadDomains();
         return;
       }
     } catch(e) {
@@ -137,7 +139,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Not logged in: Show Mandatory Auth View
+  document.documentElement.classList.remove('has-session');
   renderLoggedOutView();
+  loadDomains();
 });
 
 function setupEventHandlers() {
@@ -602,6 +606,7 @@ async function loginAccount(address, password) {
 
 function renderActiveSession() {
   localStorage.setItem('mailtm_current_account', JSON.stringify(currentAccount));
+  document.documentElement.classList.add('has-session');
 
   const shortHandle = getShortName(currentAccount.address);
   const initial = shortHandle.charAt(0).toUpperCase();
@@ -650,6 +655,7 @@ function renderActiveSession() {
 }
 
 function renderLoggedOutView() {
+  document.documentElement.classList.remove('has-session');
   stopSyncLoop();
   currentAccount = null;
   sentMessages = [];
