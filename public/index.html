@@ -242,12 +242,21 @@
                 <h3 class="inbox-heading">Inbox</h3>
                 <span id="unreadBadge" class="badge-count">0</span>
               </div>
-              <button id="manualRefreshBtn" class="btn-subtle-refresh" title="Refresh inbox">
-                <svg id="manualRefreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-              </button>
+              <div class="sidebar-actions-group">
+                <button type="button" id="btnOpenCompose" class="btn-sidebar-compose" title="Compose new email">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                  <span>Compose</span>
+                </button>
+                <button type="button" id="manualRefreshBtn" class="btn-subtle-refresh" title="Refresh inbox">
+                  <svg id="manualRefreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div class="search-bar">
@@ -451,6 +460,70 @@
               <polyline points="12 5 19 12 12 19"></polyline>
             </svg>
           </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- POPUP COMPOSE MODAL (APPLE LIQUID GLASS) -->
+  <div id="composeModal" class="modal-overlay hidden">
+    <div class="modal-card glass-modal compose-modal-card">
+      <div class="modal-glow-top"></div>
+      
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <h3>New Message</h3>
+          <p class="modal-subhead">Send email directly from your custom mailbox</p>
+        </div>
+        <button type="button" id="composeCloseBtn" class="btn-close-modal" aria-label="Close" title="Close">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-content compose-modal-content">
+        <form id="composeForm" class="compose-form">
+          <!-- From Display -->
+          <div class="compose-field">
+            <label class="compose-label">From</label>
+            <div class="compose-from-badge" id="composeFromAddress">user@domain.com</div>
+          </div>
+
+          <!-- To Field -->
+          <div class="compose-field">
+            <label class="compose-label" for="composeToInput">To</label>
+            <div class="input-field-group compose-input-group">
+              <input type="email" id="composeToInput" placeholder="recipient@example.com" required autocomplete="off" />
+            </div>
+          </div>
+
+          <!-- Subject Field -->
+          <div class="compose-field">
+            <label class="compose-label" for="composeSubjectInput">Subject</label>
+            <div class="input-field-group compose-input-group">
+              <input type="text" id="composeSubjectInput" placeholder="Enter subject" required autocomplete="off" />
+            </div>
+          </div>
+
+          <!-- Message Body -->
+          <div class="compose-field compose-body-wrap">
+            <label class="compose-label" for="composeBodyInput">Message</label>
+            <textarea id="composeBodyInput" class="compose-textarea" placeholder="Write your message here..." required rows="7"></textarea>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="compose-modal-footer">
+            <button type="button" id="composeCancelBtn" class="btn-compose-cancel">Cancel</button>
+            <button type="submit" id="composeSubmitBtn" class="btn-gradient-submit compose-send-btn">
+              <span>Send Message</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
         </form>
       </div>
     </div>

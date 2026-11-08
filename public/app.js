@@ -84,6 +84,18 @@ const modalLoginEmail = document.getElementById('modalLoginEmail');
 const modalLoginPass = document.getElementById('modalLoginPass');
 const modalToggleLoginPass = document.getElementById('modalToggleLoginPass');
 
+// Compose Modal Elements
+const composeModal = document.getElementById('composeModal');
+const btnOpenCompose = document.getElementById('btnOpenCompose');
+const composeCloseBtn = document.getElementById('composeCloseBtn');
+const composeCancelBtn = document.getElementById('composeCancelBtn');
+const composeForm = document.getElementById('composeForm');
+const composeFromAddress = document.getElementById('composeFromAddress');
+const composeToInput = document.getElementById('composeToInput');
+const composeSubjectInput = document.getElementById('composeSubjectInput');
+const composeBodyInput = document.getElementById('composeBodyInput');
+const composeSubmitBtn = document.getElementById('composeSubmitBtn');
+
 // Initialization
 window.addEventListener('DOMContentLoaded', async () => {
   purgeExpiredLocalMails();
@@ -323,6 +335,100 @@ function setupEventHandlers() {
         if (btn) {
           btn.disabled = false;
           btn.innerHTML = '<span>Switch Account</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+        }
+      }
+    });
+  }
+
+  // Compose Email Modal Handlers
+  if (btnOpenCompose) {
+    btnOpenCompose.addEventListener('click', () => {
+      if (!currentAccount || !currentAccount.address) {
+        showToast('Please sign in or create a mailbox first to send emails.');
+        return;
+      }
+      if (composeFromAddress) {
+        composeFromAddress.textContent = currentAccount.address;
+      }
+      if (composeToInput) composeToInput.value = '';
+      if (composeSubjectInput) composeSubjectInput.value = '';
+      if (composeBodyInput) composeBodyInput.value = '';
+      if (composeModal) composeModal.classList.remove('hidden');
+      setTimeout(() => composeToInput?.focus(), 100);
+    });
+  }
+
+  function closeComposeModal() {
+    if (composeModal) composeModal.classList.add('hidden');
+  }
+
+  if (composeCloseBtn) composeCloseBtn.addEventListener('click', closeComposeModal);
+  if (composeCancelBtn) composeCancelBtn.addEventListener('click', closeComposeModal);
+
+  if (composeModal) {
+    composeModal.addEventListener('click', (e) => {
+      if (e.target === composeModal) closeComposeModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && composeModal && !composeModal.classList.contains('hidden')) {
+      closeComposeModal();
+    }
+  });
+
+  if (composeForm) {
+    composeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentAccount || !currentAccount.token) {
+        showToast('You must be signed in to send emails.');
+        return;
+      }
+
+      const to = composeToInput.value.trim();
+      const subject = composeSubjectInput.value.trim();
+      const text = composeBodyInput.value.trim();
+
+      if (!to || !to.includes('@')) {
+        showToast('Please enter a valid recipient email address.');
+        return;
+      }
+
+      if (composeSubmitBtn) {
+        composeSubmitBtn.disabled = true;
+        composeSubmitBtn.innerHTML = '<span>Sending...</span>';
+      }
+
+      try {
+        const res = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentAccount.token}`
+          },
+          body: JSON.stringify({ to, subject, text })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to send message');
+        }
+
+        showToast('Message sent successfully!');
+        closeComposeModal();
+        composeForm.reset();
+      } catch (err) {
+        console.error('Send mail error:', err);
+        showToast(err.message || 'Error delivering email');
+      } finally {
+        if (composeSubmitBtn) {
+          composeSubmitBtn.disabled = false;
+          composeSubmitBtn.innerHTML = `<span>Send Message</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>`;
         }
       }
     });

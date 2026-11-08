@@ -468,6 +468,66 @@ export default {
         return jsonResponse({ success: true, source: { data: parsed.raw || '' } });
       }
 
+      // 7. Send Outbound Email (Powered by Brevo)
+      if (pathname === '/send-email' && method === 'POST') {
+        if (!authenticatedAddress) {
+          return jsonResponse({ success: false, error: 'Authorization header required. Please sign in.' }, 401);
+        }
+
+        let body = {};
+        try { body = await request.json(); } catch(e) {
+          return jsonResponse({ success: false, error: 'Invalid JSON request' }, 400);
+        }
+
+        const { to, subject, text, html } = body;
+        if (!to || typeof to !== 'string' || !to.includes('@')) {
+          return jsonResponse({ success: false, error: 'Valid recipient email (To) is required.' }, 400);
+        }
+
+        const senderAddress = authenticatedAddress;
+        const senderName = senderAddress.split('@')[0] || 'Mailflux User';
+
+        const safeHtml = html || (text ? `<div style="font-family:sans-serif;white-space:pre-wrap;line-height:1.6;">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : '<p></p>');
+
+        const brevoPayload = {
+          sender: {
+            name: senderName,
+            email: senderAddress
+          },
+          to: [
+            { email: to.trim() }
+          ],
+          subject: subject && subject.trim() ? subject.trim() : '(No Subject)',
+          htmlContent: safeHtml
+        };
+
+        const brevoApiKey = env.BREVO_API_KEY;
+
+        const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': brevoApiKey,
+            'content-type': 'application/json',
+            'accept': 'application/json'
+          },
+          body: JSON.stringify(brevoPayload)
+        });
+
+        const brevoData = await brevoRes.json().catch(() => ({}));
+        if (!brevoRes.ok) {
+          return jsonResponse({
+            success: false,
+            error: brevoData.message || 'Failed to deliver message via Brevo'
+          }, brevoRes.status);
+        }
+
+        return jsonResponse({
+          success: true,
+          messageId: brevoData.messageId || 'sent',
+          message: 'Email delivered successfully!'
+        });
+      }
+
       return jsonResponse({ success: false, error: `Endpoint ${method} /${pathname} not found` }, 404);
 
     } catch(err) {
