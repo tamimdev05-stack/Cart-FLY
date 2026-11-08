@@ -1435,6 +1435,10 @@ body {
   display: block;
 }
 
+#panePreview {
+  overflow: hidden;
+}
+
 #emailFrame {
   width: 100%;
   height: 100%;
@@ -1442,6 +1446,7 @@ body {
   background: #FFFFFF;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  display: block;
 }
 
 #textPreviewBody, #sourcePreviewBody {

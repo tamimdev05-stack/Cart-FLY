@@ -890,13 +890,57 @@ function linkify(text) {
   });
 }
 
+function decodeQuotedPrintable(input) {
+  if (typeof input !== 'string') return input;
+  const normalized = input.replace(/=(?:\r\n|\r|\n)/g, '');
+  try {
+    const percentEncoded = normalized
+      .replace(/%/g, '%25')
+      .replace(/=([0-9A-Fa-f]{2})/g, '%$1');
+    return decodeURIComponent(percentEncoded);
+  } catch (e) {
+    return normalized.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+  }
+}
+
 function prepareEmailHtml(rawHtml) {
   if (!rawHtml) return '';
 
   let processed = rawHtml;
+  if (/(?:=09|=3D|=\r?\n|=E2=80=8B)/i.test(processed)) {
+    processed = decodeQuotedPrintable(processed);
+  }
 
-  // 1. Inject <base target="_blank"> to ensure any link defaults to opening in a new tab
+  // 1. Inject <base target="_blank"> and responsive typography styles
   const baseTag = '<base target="_blank">';
+  const defaultStyles = `
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+        color: #1e293b;
+        background-color: #ffffff;
+        box-sizing: border-box;
+        word-break: break-word;
+      }
+      img {
+        max-width: 100% !important;
+        height: auto !important;
+      }
+      table {
+        max-width: 100% !important;
+      }
+      pre {
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        font-family: inherit !important;
+      }
+    </style>
+  `;
 
   // 2. Client script inside iframe to guarantee all anchor clicks open in a new tab
   const clickScript = `
@@ -925,12 +969,14 @@ function prepareEmailHtml(rawHtml) {
     <\/script>
   `;
 
+  const injectedHead = `${baseTag}${defaultStyles}${clickScript}`;
+
   if (/<head[^>]*>/i.test(processed)) {
-    processed = processed.replace(/<head[^>]*>/i, `$&${baseTag}${clickScript}`);
+    processed = processed.replace(/<head[^>]*>/i, `$&${injectedHead}`);
   } else if (/<html[^>]*>/i.test(processed)) {
-    processed = processed.replace(/<html[^>]*>/i, `$&<head>${baseTag}${clickScript}</head>`);
+    processed = processed.replace(/<html[^>]*>/i, `$&<head>${injectedHead}</head>`);
   } else {
-    processed = `<!DOCTYPE html><html><head>${baseTag}${clickScript}</head><body>${processed}</body></html>`;
+    processed = `<!DOCTYPE html><html><head>${injectedHead}</head><body>${processed}</body></html>`;
   }
 
   // Also replace any existing target="_self" or target="_parent" or target="_top" with target="_blank"
