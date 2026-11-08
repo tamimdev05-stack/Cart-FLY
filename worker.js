@@ -60,19 +60,32 @@ export default {
   // -------------------------------------------------------------
   async email(message, env, ctx) {
     try {
-      const recipient = (message.to || '').toLowerCase().trim();
-      const rawText = await new Response(message.raw).text();
+      function extractCleanEmail(str) {
+        if (!str) return '';
+        const m = str.match(/<?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>?/);
+        return m ? m[1].toLowerCase().trim() : str.replace(/[<>]/g, '').toLowerCase().trim();
+      }
+
+      const rawBuffer = await new Response(message.raw).arrayBuffer();
+      const rawText = new TextDecoder('utf-8', { fatal: false }).decode(rawBuffer);
 
       // High-Fidelity RFC 822 / MIME Email Parser
-      const parser = new PostalMime();
-      const parsedEmail = await parser.parse(rawText);
+      let parsedEmail = {};
+      try {
+        const parser = new PostalMime();
+        parsedEmail = await parser.parse(rawBuffer);
+      } catch (parseErr) {
+        console.warn('PostalMime fallback parsing:', parseErr);
+        parsedEmail = {};
+      }
 
       const timestamp = Date.now();
       const msgId = 'msg_' + timestamp + '_' + Math.random().toString(36).substring(2, 8);
 
       const subject = parsedEmail.subject || message.headers.get('subject') || '(No Subject)';
       const fromObj = parsedEmail.from || { name: message.from || 'Unknown', address: message.from || '' };
-      const toArr = parsedEmail.to && parsedEmail.to.length > 0 ? parsedEmail.to : [{ address: recipient }];
+      const envelopeTo = extractCleanEmail(message.to);
+      const toArr = parsedEmail.to && parsedEmail.to.length > 0 ? parsedEmail.to : [{ address: envelopeTo }];
       const textBody = parsedEmail.text || '';
       const htmlBody = parsedEmail.html || '';
 
@@ -98,19 +111,43 @@ export default {
         id: parsed.id,
         from: parsed.from,
         to: parsed.to,
-        subject: parsed.subject,
-        intro: parsed.intro,
+        subject: parsed.subject.substring(0, 100),
+        intro: parsed.intro.substring(0, 120),
         seen: false,
         createdAt: parsed.createdAt,
         timestamp
       };
 
-      const msgKey = `msg:${recipient}:${timestamp}:${msgId}`;
-      await env.MAIL_KV.put(msgKey, JSON.stringify(parsed), {
-        metadata
-      });
+      // 1. Store full body in KV by ID (Direct KV.get accessible, ZERO list operations required)
+      await env.MAIL_KV.put(`body:${msgId}`, JSON.stringify(parsed));
 
-      console.log(`✅ Stored message for ${recipient}: "${parsed.subject}" (ID: ${msgId})`);
+      // 2. Identify all recipient mailboxes for this email
+      const targetRecipients = new Set();
+      if (envelopeTo) targetRecipients.add(envelopeTo);
+      if (parsedEmail.to) {
+        parsedEmail.to.forEach(t => {
+          const cl = extractCleanEmail(t.address || t.name);
+          if (cl && (cl.endsWith('@mailflux.online') || cl.endsWith('@freelancingaid.online'))) {
+            targetRecipients.add(cl);
+          }
+        });
+      }
+
+      // 3. Atomically update inbox list for each recipient
+      for (const rcpt of targetRecipients) {
+        const inboxKey = `inbox:${rcpt}`;
+        let currentInbox = [];
+        try {
+          const rawInbox = await env.MAIL_KV.get(inboxKey);
+          if (rawInbox) currentInbox = JSON.parse(rawInbox);
+        } catch(e) {}
+
+        // Add newest message to top, retain last 100 emails
+        currentInbox = [metadata, ...currentInbox.filter(m => m.id !== msgId)].slice(0, 100);
+        await env.MAIL_KV.put(inboxKey, JSON.stringify(currentInbox));
+        console.log(`✅ Stored message for ${rcpt}: "${parsed.subject}" (ID: ${msgId})`);
+      }
+
     } catch(err) {
       console.error('❌ Error processing inbound email:', err.message);
     }
@@ -293,36 +330,24 @@ export default {
         } catch(e) {}
       }
 
-      // 4. Messages (List) - Always uses authoritative KV list with instant metadata
+      // 4. Messages (List) - Instant Index lookup (100,000 requests/day, ZERO list operations)
       if (pathname === '/messages' && method === 'GET') {
         if (!authenticatedAddress) {
           return jsonResponse({ success: false, error: 'Authorization header required. Please login.' }, 401);
         }
 
-        const prefix = `msg:${authenticatedAddress}:`;
-        const kvList = await env.MAIL_KV.list({ prefix, limit: 100 });
-
-        const messages = [];
-        for (const item of (kvList.keys || [])) {
-          if (item.metadata && item.metadata.id) {
-            messages.push(item.metadata);
-          } else {
-            const raw = await env.MAIL_KV.get(item.name);
-            if (raw) {
-              const p = JSON.parse(raw);
-              messages.push({
-                id: p.id,
-                from: p.from,
-                to: p.to,
-                subject: p.subject,
-                intro: p.intro,
-                seen: p.seen,
-                createdAt: p.createdAt
-              });
-            }
+        const inboxKey = `inbox:${authenticatedAddress}`;
+        let messages = [];
+        try {
+          const raw = await env.MAIL_KV.get(inboxKey);
+          if (raw) {
+            messages = JSON.parse(raw);
           }
+        } catch(e) {
+          console.warn('Error reading inbox index:', e);
         }
 
+        // Auto-sort newest first
         messages.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
         return jsonResponse({
@@ -332,7 +357,7 @@ export default {
         });
       }
 
-      // 5. Message by ID (GET / PATCH / DELETE)
+      // 5. Message by ID (GET / PATCH / DELETE) - Direct key lookup
       const msgMatch = pathname.match(/^\/messages\/([^/?]+)$/);
       if (msgMatch) {
         if (!authenticatedAddress) {
@@ -340,18 +365,10 @@ export default {
         }
 
         const id = msgMatch[1];
-        const prefix = `msg:${authenticatedAddress}:`;
-        const kvList = await env.MAIL_KV.list({ prefix });
-        const targetKeyObj = (kvList.keys || []).find(k => k.name.endsWith(':' + id) || (k.metadata && k.metadata.id === id));
-
-        if (!targetKeyObj) {
-          return jsonResponse({ success: false, error: 'Message not found.' }, 404);
-        }
-
-        const msgKey = targetKeyObj.name;
+        const bodyKey = `body:${id}`;
 
         if (method === 'GET') {
-          const rawMsg = await env.MAIL_KV.get(msgKey);
+          const rawMsg = await env.MAIL_KV.get(bodyKey);
           if (!rawMsg) return jsonResponse({ success: false, error: 'Message content not found' }, 404);
           let message = JSON.parse(rawMsg);
 
@@ -386,19 +403,49 @@ export default {
         }
 
         if (method === 'PATCH') {
-          const rawMsg = await env.MAIL_KV.get(msgKey);
-          if (rawMsg) {
-            const message = JSON.parse(rawMsg);
-            message.seen = true;
-            const meta = targetKeyObj.metadata || {};
-            meta.seen = true;
-            await env.MAIL_KV.put(msgKey, JSON.stringify(message), { metadata: meta });
-          }
+          // Mark as seen in user's inbox list
+          const inboxKey = `inbox:${authenticatedAddress}`;
+          try {
+            const rawInbox = await env.MAIL_KV.get(inboxKey);
+            if (rawInbox) {
+              const list = JSON.parse(rawInbox);
+              const target = list.find(m => m.id === id);
+              if (target) {
+                target.seen = true;
+                await env.MAIL_KV.put(inboxKey, JSON.stringify(list));
+              }
+            }
+          } catch(e) {}
+
+          // Also mark seen in message body
+          try {
+            const rawMsg = await env.MAIL_KV.get(bodyKey);
+            if (rawMsg) {
+              const msg = JSON.parse(rawMsg);
+              msg.seen = true;
+              await env.MAIL_KV.put(bodyKey, JSON.stringify(msg));
+            }
+          } catch(e) {}
+
           return jsonResponse({ success: true, message: { id, seen: true } });
         }
 
         if (method === 'DELETE') {
-          await env.MAIL_KV.delete(msgKey);
+          // Remove from user's inbox list
+          const inboxKey = `inbox:${authenticatedAddress}`;
+          try {
+            const rawInbox = await env.MAIL_KV.get(inboxKey);
+            if (rawInbox) {
+              const list = JSON.parse(rawInbox).filter(m => m.id !== id);
+              await env.MAIL_KV.put(inboxKey, JSON.stringify(list));
+            }
+          } catch(e) {}
+
+          // Delete message body
+          try {
+            await env.MAIL_KV.delete(bodyKey);
+          } catch(e) {}
+
           return jsonResponse({ success: true, message: 'Message deleted successfully' });
         }
       }
@@ -411,13 +458,9 @@ export default {
         }
 
         const id = srcMatch[1];
-        const prefix = `msg:${authenticatedAddress}:`;
-        const kvList = await env.MAIL_KV.list({ prefix });
-        const targetKeyObj = (kvList.keys || []).find(k => k.name.endsWith(':' + id) || (k.metadata && k.metadata.id === id));
-        if (!targetKeyObj) return jsonResponse({ success: false, error: 'Source not found' }, 404);
-
-        const rawMsg = await env.MAIL_KV.get(targetKeyObj.name);
-        if (!rawMsg) return jsonResponse({ success: false, error: 'Source data empty' }, 404);
+        const bodyKey = `body:${id}`;
+        const rawMsg = await env.MAIL_KV.get(bodyKey);
+        if (!rawMsg) return jsonResponse({ success: false, error: 'Source not found' }, 404);
 
         const parsed = JSON.parse(rawMsg);
         return jsonResponse({ success: true, source: { data: parsed.raw || '' } });

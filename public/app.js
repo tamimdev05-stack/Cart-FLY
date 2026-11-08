@@ -1168,12 +1168,21 @@ function startSyncLoop() {
   // Immediate fetch upon activating session
   fetchMessages();
 
-  // High-speed 2-second background sync
+  // Smart 4-second background sync (only active when tab is visible)
   countdownInterval = setInterval(() => {
     if (!currentAccount) return;
-    fetchMessages();
-  }, 2000);
+    if (document.visibilityState === 'visible') {
+      fetchMessages();
+    }
+  }, 4000);
 }
+
+// Immediately refresh when tab is focused
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && currentAccount) {
+    fetchMessages();
+  }
+});
 
 function stopSyncLoop() {
   if (countdownInterval) clearInterval(countdownInterval);
