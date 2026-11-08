@@ -1161,6 +1161,13 @@ function triggerManualRefresh() {
   });
 }
 
+let lastUserActivity = Date.now();
+['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+  window.addEventListener(evt, () => { lastUserActivity = Date.now(); }, { passive: true });
+});
+
+let syncTimerId = null;
+
 function startSyncLoop() {
   stopSyncLoop();
   if (!currentAccount) return;
@@ -1168,13 +1175,28 @@ function startSyncLoop() {
   // Immediate fetch upon activating session
   fetchMessages();
 
-  // Smart 4-second background sync (only active when tab is visible)
-  countdownInterval = setInterval(() => {
+  function scheduleNext() {
     if (!currentAccount) return;
-    if (document.visibilityState === 'visible') {
-      fetchMessages();
-    }
-  }, 4000);
+    const isIdle = (Date.now() - lastUserActivity) > 60000; // 1 min without interaction
+    const delay = isIdle ? 8000 : 4000;
+
+    syncTimerId = setTimeout(async () => {
+      if (!currentAccount) return;
+      if (document.visibilityState === 'visible') {
+        await fetchMessages();
+      }
+      scheduleNext();
+    }, delay);
+  }
+
+  scheduleNext();
+}
+
+function stopSyncLoop() {
+  if (syncTimerId) {
+    clearTimeout(syncTimerId);
+    syncTimerId = null;
+  }
 }
 
 // Immediately refresh when tab is focused
@@ -1183,10 +1205,6 @@ document.addEventListener('visibilitychange', () => {
     fetchMessages();
   }
 });
-
-function stopSyncLoop() {
-  if (countdownInterval) clearInterval(countdownInterval);
-}
 
 function getShortName(addr) {
   if (!addr) return 'User';

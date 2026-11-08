@@ -118,8 +118,8 @@ export default {
         timestamp
       };
 
-      // 1. Store full body in KV by ID (Direct KV.get accessible, ZERO list operations required)
-      await env.MAIL_KV.put(`body:${msgId}`, JSON.stringify(parsed));
+      // 1. Store full body in KV by ID with 24-hour auto-expiration (86400 seconds)
+      await env.MAIL_KV.put(`body:${msgId}`, JSON.stringify(parsed), { expirationTtl: 86400 });
 
       // 2. Identify all recipient mailboxes for this email
       const targetRecipients = new Set();
@@ -133,7 +133,8 @@ export default {
         });
       }
 
-      // 3. Atomically update inbox list for each recipient
+      // 3. Atomically update inbox list for each recipient (retains last 24 hours of emails)
+      const twentyFourHoursAgo = Date.now() - 86400 * 1000;
       for (const rcpt of targetRecipients) {
         const inboxKey = `inbox:${rcpt}`;
         let currentInbox = [];
@@ -142,8 +143,8 @@ export default {
           if (rawInbox) currentInbox = JSON.parse(rawInbox);
         } catch(e) {}
 
-        // Add newest message to top, retain last 100 emails
-        currentInbox = [metadata, ...currentInbox.filter(m => m.id !== msgId)].slice(0, 100);
+        // Add newest message to top, filter expired emails (> 24h)
+        currentInbox = [metadata, ...currentInbox.filter(m => m.id !== msgId && (!m.timestamp || m.timestamp > twentyFourHoursAgo))].slice(0, 100);
         await env.MAIL_KV.put(inboxKey, JSON.stringify(currentInbox));
         console.log(`✅ Stored message for ${rcpt}: "${parsed.subject}" (ID: ${msgId})`);
       }
@@ -337,11 +338,12 @@ export default {
         }
 
         const inboxKey = `inbox:${authenticatedAddress}`;
+        const twentyFourHoursAgo = Date.now() - 86400 * 1000;
         let messages = [];
         try {
           const raw = await env.MAIL_KV.get(inboxKey);
           if (raw) {
-            messages = JSON.parse(raw);
+            messages = JSON.parse(raw).filter(m => !m.timestamp || m.timestamp > twentyFourHoursAgo);
           }
         } catch(e) {
           console.warn('Error reading inbox index:', e);
