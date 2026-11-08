@@ -35,25 +35,15 @@ const dropdownSignOutBtn = document.getElementById('dropdownSignOutBtn');
 const mandatoryAuthView = document.getElementById('mandatoryAuthView');
 const inboxWorkspace = document.getElementById('inboxWorkspace');
 
-// Landing Auth Forms
-const tabSwitchCreate = document.getElementById('tabSwitchCreate');
-const tabSwitchLogin = document.getElementById('tabSwitchLogin');
-const landingCreateForm = document.getElementById('landingCreateForm');
-const landingLoginForm = document.getElementById('landingLoginForm');
-const regUsername = document.getElementById('regUsername');
-const regDomainSelect = document.getElementById('regDomainSelect');
-const regPassword = document.getElementById('regPassword');
-const toggleRegPassBtn = document.getElementById('toggleRegPassBtn');
-const btnSubmitCreate = document.getElementById('btnSubmitCreate');
-
-const loginAddress = document.getElementById('loginAddress');
-const loginPass = document.getElementById('loginPass');
-const toggleLoginPassBtn = document.getElementById('toggleLoginPassBtn');
-const btnSubmitLogin = document.getElementById('btnSubmitLogin');
-
-const landingRecentSection = document.getElementById('landingRecentSection');
-const landingRecentChips = document.getElementById('landingRecentChips');
-const btnLandingClearRecent = document.getElementById('btnLandingClearRecent');
+// Landing Auth Elements (100% User Design Spec)
+const fSignin = document.getElementById('f-signin');
+const fCreate = document.getElementById('f-create');
+const siEmail = document.getElementById('si-email');
+const siPass = document.getElementById('si-pass');
+const crUser = document.getElementById('cr-user');
+const crPass = document.getElementById('cr-pass');
+const tSignin = document.getElementById('t-signin');
+const tCreate = document.getElementById('t-create');
 
 // Workspace Message List Elements
 const unreadBadge = document.getElementById('unreadBadge');
@@ -184,102 +174,17 @@ function setupEventHandlers() {
 
   // Nav Auth Buttons
   if (navSignInBtn) navSignInBtn.addEventListener('click', () => {
-    switchLandingTab('login');
-    loginAddress.focus();
+    if (window.showLandingTab) window.showLandingTab('signin');
+    if (siEmail) siEmail.focus();
   });
 
   if (navSignUpBtn) navSignUpBtn.addEventListener('click', () => {
-    switchLandingTab('create');
-    regUsername.focus();
+    if (window.showLandingTab) window.showLandingTab('create');
+    if (crUser) crUser.focus();
   });
 
-  // Landing Tabs Switcher
-  if (tabSwitchCreate) tabSwitchCreate.addEventListener('click', () => switchLandingTab('create'));
-  if (tabSwitchLogin) tabSwitchLogin.addEventListener('click', () => switchLandingTab('login'));
-
-  // Pro Card Switch Button ("Create one" / "Sign in")
-  const btnSwitchAuthMode = document.getElementById('btnSwitchAuthMode');
-  if (btnSwitchAuthMode) {
-    btnSwitchAuthMode.addEventListener('click', (e) => {
-      e.preventDefault();
-      const isLoginActive = landingLoginForm && landingLoginForm.classList.contains('active');
-      switchLandingTab(isLoginActive ? 'create' : 'login');
-    });
-  }
-
-  // Forgot password handler
-  const btnForgotPass = document.getElementById('btnForgotPass');
-  if (btnForgotPass) {
-    btnForgotPass.addEventListener('click', (e) => {
-      e.preventDefault();
-      showToast('Enter your registered address & password to access.');
-    });
-  }
-
-  // Password Visibility Toggles on Landing
-  toggleRegPassBtn.addEventListener('click', () => {
-    const isP = regPassword.type === 'password';
-    regPassword.type = isP ? 'text' : 'password';
-    toggleRegPassBtn.innerHTML = isP 
-      ? '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>' 
-      : '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-  });
-
-  toggleLoginPassBtn.addEventListener('click', () => {
-    const isP = loginPass.type === 'password';
-    loginPass.type = isP ? 'text' : 'password';
-    toggleLoginPassBtn.innerHTML = isP 
-      ? '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>' 
-      : '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-  });
-
-  // Landing Create Form Submission
-  landingCreateForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const user = regUsername.value.trim();
-    const domain = regDomainSelect.value;
-    const pass = regPassword.value.trim();
-
-    if (!user) return regUsername.focus();
-    if (!domain) return alert('Active domain not detected yet.');
-    if (!pass || pass.length < 6) {
-      alert('Password must be at least 6 characters.');
-      return regPassword.focus();
-    }
-
-    btnSubmitCreate.disabled = true;
-    btnSubmitCreate.innerHTML = '<span>Creating...</span>';
-
-    try {
-      await createAccount(user, domain, pass);
-    } finally {
-      btnSubmitCreate.disabled = false;
-      btnSubmitCreate.innerHTML = '<span>Create Account</span>';
-    }
-  });
-
-  // Landing Login Form Submission
-  landingLoginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const addr = loginAddress.value.trim();
-    const pass = loginPass.value.trim();
-
-    if (!addr) return loginAddress.focus();
-    if (!pass) {
-      alert('Password is required! Password ছাড়া লগইন করা যাবে না।');
-      return loginPass.focus();
-    }
-
-    btnSubmitLogin.disabled = true;
-    btnSubmitLogin.innerHTML = '<span>Signing In...</span>';
-
-    try {
-      await loginAccount(addr, pass);
-    } finally {
-      btnSubmitLogin.disabled = false;
-      btnSubmitLogin.innerHTML = '<span>Sign In</span>';
-    }
-  });
+  // Setup 100% User Landing Auth Flow
+  setupLandingUserAuth();
 
   // Clear Recent Landing Chips
   if (btnLandingClearRecent) btnLandingClearRecent.addEventListener('click', () => {
@@ -409,18 +314,21 @@ async function loadDomains(forceFresh = false) {
       const navBadge = document.getElementById('navActiveDomainBadge');
       if (navBadge) navBadge.textContent = '@' + currentActiveDomain;
 
-      [regDomainSelect, modalRegDomainSelect].forEach(select => {
-        if (!select) return;
-        select.innerHTML = '';
+      if (window.refreshLandingDomainOptions) {
+        window.refreshLandingDomainOptions(data.domains, currentActiveDomain);
+      }
+
+      if (modalRegDomainSelect) {
+        modalRegDomainSelect.innerHTML = '';
         data.domains.forEach(d => {
           if (d.isActive) {
             const opt = document.createElement('option');
             opt.value = d.domain;
             opt.textContent = d.domain;
-            select.appendChild(opt);
+            modalRegDomainSelect.appendChild(opt);
           }
         });
-      });
+      }
     }
   } catch(err) {
     console.error('Domain fetch error:', err);
@@ -516,6 +424,10 @@ function renderLoggedOutView() {
   if (inboxWorkspace) inboxWorkspace.classList.add('hidden');
 
   renderRecentAccounts();
+  if (window.showLandingTab) {
+    const hash = (location.hash || '').replace('#', '');
+    window.showLandingTab(hash === 'create' ? 'create' : 'signin');
+  }
 }
 
 function signOut() {
@@ -523,36 +435,275 @@ function signOut() {
   showToast('Signed out of Mailflux');
 }
 
-function switchLandingTab(tab) {
-  const cardTitle = document.getElementById('authCardTitle');
-  const cardSubhead = document.getElementById('authCardSubtitle');
-  const switchPrompt = document.getElementById('authSwitchPrompt');
-  const switchBtn = document.getElementById('btnSwitchAuthMode');
+function setupLandingUserAuth() {
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
 
-  if (tab === 'create') {
-    if (tabSwitchCreate) tabSwitchCreate.classList.add('active');
-    if (tabSwitchLogin) tabSwitchLogin.classList.remove('active');
-    if (landingCreateForm) landingCreateForm.classList.add('active');
-    if (landingLoginForm) landingLoginForm.classList.remove('active');
+  const eyeOn = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const eyeOff = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.6 8.5 2 12 2 12s3.6 7 10 7c1.7 0 3.2-.4 4.5-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
 
-    if (cardTitle) cardTitle.textContent = 'Create Account';
-    if (cardSubhead) cardSubhead.textContent = 'Set up your permanent cloud mailbox';
-    if (switchPrompt) switchPrompt.textContent = 'Already have an account?';
-    if (switchBtn) switchBtn.textContent = 'Sign in';
+  const tabs = $('.tabs');
+  const forms = { signin: $('#f-signin'), create: $('#f-create') };
+  const titles = { signin: 'Sign in', create: 'Create account' };
 
-    if (regUsername) setTimeout(() => regUsername.focus(), 50);
-  } else {
-    if (tabSwitchLogin) tabSwitchLogin.classList.add('active');
-    if (tabSwitchCreate) tabSwitchCreate.classList.remove('active');
-    if (landingLoginForm) landingLoginForm.classList.add('active');
-    if (landingCreateForm) landingCreateForm.classList.remove('active');
+  window.showLandingTab = function(v) {
+    if (!tabs || !forms.signin || !forms.create) return;
+    if (!forms[v]) v = 'signin';
+    tabs.dataset.view = v;
+    ['signin', 'create'].forEach(k => {
+      if (forms[k]) forms[k].hidden = (k !== v);
+      const btn = $('#t-' + k);
+      if (btn) {
+        btn.setAttribute('aria-selected', k === v);
+        btn.tabIndex = k === v ? 0 : -1;
+      }
+    });
+    document.title = 'MailFlux – ' + titles[v];
+  };
 
-    if (cardTitle) cardTitle.textContent = 'Welcome Back';
-    if (cardSubhead) cardSubhead.textContent = 'Sign in to your permanent mailbox';
-    if (switchPrompt) switchPrompt.textContent = "Don't have an account?";
-    if (switchBtn) switchBtn.textContent = 'Create one';
+  function route() {
+    const hash = (location.hash || '').replace('#', '');
+    if (hash === 'create' || hash === 'signin') {
+      window.showLandingTab(hash);
+    }
+  }
+  window.addEventListener('hashchange', route);
+  route();
 
-    if (loginAddress) setTimeout(() => loginAddress.focus(), 50);
+  $$('.tabs button').forEach(b => {
+    b.addEventListener('click', () => {
+      location.hash = b.id.replace('t-', '');
+    });
+  });
+
+  if (tabs) {
+    tabs.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const n = tabs.dataset.view === 'signin' ? 'create' : 'signin';
+        location.hash = n;
+        const targetBtn = $('#t-' + n);
+        if (targetBtn) targetBtn.focus();
+      }
+    });
+  }
+
+  // Password visibility toggles
+  $$('.eye').forEach(b => {
+    b.innerHTML = eyeOn;
+    b.addEventListener('click', () => {
+      const i = b.parentNode.querySelector('input');
+      if (!i) return;
+      const isPass = i.type === 'password';
+      i.type = isPass ? 'text' : 'password';
+      b.innerHTML = isPass ? eyeOff : eyeOn;
+      b.setAttribute('aria-pressed', isPass);
+      b.setAttribute('aria-label', isPass ? 'Hide password' : 'Show password');
+    });
+  });
+
+  // Validation helpers
+  window.failField = function(input, text) {
+    if (!input) return false;
+    const f = input.closest('.field');
+    if (!f) return false;
+    f.classList.add('bad');
+    const bx = f.querySelector('.box');
+    if (bx) bx.classList.add('err');
+    const msg = f.querySelector('.msg');
+    if (msg) msg.textContent = text;
+    return false;
+  };
+
+  window.clearField = function(input) {
+    if (!input) return;
+    const f = input.closest('.field');
+    if (!f) return;
+    f.classList.remove('bad');
+    $$('.box', f).forEach(b => b.classList.remove('err'));
+  };
+
+  $$('input').forEach(i => {
+    i.addEventListener('input', () => window.clearField(i));
+  });
+
+  // Custom domain dropdown
+  const dom = $('#dom');
+  if (dom) {
+    const btn = $('button', dom);
+    const menu = $('.menu', dom);
+
+    function setOpen(o) {
+      dom.classList.toggle('open', o);
+      if (btn) btn.setAttribute('aria-expanded', o);
+      if (o) {
+        const opts = $$('li', menu);
+        const cur = opts.findIndex(x => x.getAttribute('aria-selected') === 'true');
+        opts.forEach((x, i) => x.classList.toggle('act', i === cur));
+      }
+    }
+
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setOpen(!dom.classList.contains('open'));
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!dom.contains(e.target)) setOpen(false);
+    });
+
+    window.refreshLandingDomainOptions = function(domains, activeDomain) {
+      if (!menu) return;
+      menu.innerHTML = '';
+      domains.forEach((d, idx) => {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'option');
+        li.dataset.v = d.domain;
+        const isSel = (d.domain === activeDomain) || (idx === 0 && !activeDomain);
+        li.setAttribute('aria-selected', isSel ? 'true' : 'false');
+        li.textContent = d.domain;
+        if (isSel) {
+          const domVal = $('#dom-val');
+          if (domVal) domVal.textContent = d.domain;
+        }
+        li.addEventListener('click', () => {
+          $$('li', menu).forEach(x => x.setAttribute('aria-selected', 'false'));
+          li.setAttribute('aria-selected', 'true');
+          const domVal = $('#dom-val');
+          if (domVal) domVal.textContent = d.domain;
+          setOpen(false);
+          updatePreview();
+          if (btn) btn.focus();
+        });
+        menu.appendChild(li);
+      });
+    };
+  }
+
+  const user = $('#cr-user');
+  function updatePreview() {
+    if (!user) return;
+    const u = user.value.trim().toLowerCase() || 'username';
+    const domVal = $('#dom-val');
+    const domText = domVal ? domVal.textContent : 'mailflux.online';
+    const prev = $('#preview');
+    if (prev) {
+      prev.innerHTML = 'Your address: <em></em>';
+      const em = prev.querySelector('em');
+      if (em) em.textContent = u + '@' + domText;
+    }
+  }
+
+  if (user) {
+    user.addEventListener('input', () => {
+      user.value = user.value.replace(/[^a-zA-Z0-9._-]/g, '');
+      updatePreview();
+    });
+  }
+
+  // Password strength meter
+  const cp = $('#cr-pass');
+  if (cp) {
+    const bars = $$('.meter i');
+    const cols = ['#ff6b81', '#ffb454', '#7c9bff', '#34d399'];
+    const words = ['Too short', 'Weak', 'Okay', 'Strong'];
+    cp.addEventListener('input', () => {
+      const v = cp.value;
+      let s = 0;
+      if (v.length >= 6) s++;
+      if (v.length >= 10) s++;
+      if (/[A-Z]/.test(v) && /[a-z]/.test(v) && /\d/.test(v)) s++;
+      if (/[^A-Za-z0-9]/.test(v) && v.length >= 8) s++;
+      s = v ? Math.max(s, 1) : 0;
+      bars.forEach((b, i) => {
+        b.style.background = i < s ? cols[s - 1] : '';
+      });
+      const strength = $('#strength');
+      if (strength) {
+        strength.textContent = v 
+          ? (v.length < 6 ? words[0] : words[s - 1]) + (v.length < 6 ? ' – use at least 6 characters.' : ' password.')
+          : 'Use 6+ characters. Add numbers and symbols for a stronger password.';
+      }
+    });
+  }
+
+  // Submit Sign In Form
+  if (forms.signin) {
+    forms.signin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const em = $('#si-email');
+      const pw = $('#si-pass');
+      let ok = true;
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())) {
+        window.failField(em, 'Enter a valid email address, like you@mailflux.online.');
+        ok = false;
+      }
+      if (!pw.value) {
+        window.failField(pw, 'Enter your password.');
+        ok = false;
+      }
+      if (!ok) {
+        const firstBad = forms.signin.querySelector('.field.bad input');
+        if (firstBad) firstBad.focus();
+        return;
+      }
+
+      const cta = forms.signin.querySelector('.cta');
+      const toast = forms.signin.querySelector('.toast');
+      if (cta) { cta.classList.add('load'); cta.disabled = true; }
+      if (toast) toast.classList.remove('on');
+
+      try {
+        await loginAccount(em.value.trim(), pw.value.trim());
+      } catch(err) {
+        window.failField(pw, err.message || 'Login failed. Check your password.');
+        pw.focus();
+      } finally {
+        if (cta) { cta.classList.remove('load'); cta.disabled = false; }
+      }
+    });
+  }
+
+  // Submit Create Account Form
+  if (forms.create) {
+    forms.create.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const u = $('#cr-user');
+      const pw = $('#cr-pass');
+      const domVal = $('#dom-val');
+      const domain = domVal ? domVal.textContent : 'mailflux.online';
+      let ok = true;
+
+      if (u.value.trim().length < 3) {
+        window.failField(u, 'Username needs at least 3 characters (letters, numbers, . _ -).');
+        ok = false;
+      }
+      if (pw.value.length < 6) {
+        window.failField(pw, 'Password needs at least 6 characters.');
+        ok = false;
+      }
+      if (!ok) {
+        const firstBad = forms.create.querySelector('.field.bad input');
+        if (firstBad) firstBad.focus();
+        return;
+      }
+
+      const cta = forms.create.querySelector('.cta');
+      const toast = forms.create.querySelector('.toast');
+      if (cta) { cta.classList.add('load'); cta.disabled = true; }
+      if (toast) toast.classList.remove('on');
+
+      try {
+        await createAccount(u.value.trim().toLowerCase(), domain, pw.value.trim());
+      } catch(err) {
+        window.failField(u, err.message || 'Failed to create mailbox.');
+        u.focus();
+      } finally {
+        if (cta) { cta.classList.remove('load'); cta.disabled = false; }
+      }
+    });
   }
 }
 

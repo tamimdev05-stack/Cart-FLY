@@ -20,23 +20,22 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Ambient Atmospheric Lighting -->
-  <div class="ambient-glow orb-main"></div>
-  <div class="ambient-glow orb-purple"></div>
-  
-  <!-- Glowing Bottom-Left Aurora Wave -->
-  <div class="aurora-wave-bottom-left"></div>
+  <div class="glow g1"></div><div class="glow g2"></div><div class="glow g3"></div>
 
   <div class="app-layout">
     
-    <!-- FROSTED LIQUID GLASS NAVBAR -->
+    <!-- NAVBAR -->
     <header class="navbar">
       <div class="nav-brand">
-        <img src="logo.png" alt="MailFlux" class="brand-logo-img" />
+        <a class="logo" href="#signin" aria-label="MailFlux home">
+          <svg width="30" height="22" viewBox="0 0 30 22" fill="none" aria-hidden="true"><defs><linearGradient id="lg" x1="0" x2="1"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#7c5cff"/></linearGradient></defs><path d="M2 5h8M0 10h9M3 15h7" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/><path d="M12 2h16a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H12a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" fill="url(#lg)"/><path d="m12.5 3.5 7.5 6.5 7.5-6.5" stroke="#05060f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Mail<b>Flux</b>
+        </a>
       </div>
 
       <div class="nav-right">
@@ -139,212 +138,95 @@
     <!-- MAIN BODY -->
     <main class="main-body">
       
-      <!-- EXACT PRO SPLIT HERO VIEW (MATCHING USER REFERENCE DESIGN) -->
-      <section id="mandatoryAuthView" class="pro-split-hero-view">
-        <div class="split-hero-container">
-          
-          <!-- LEFT HERO CONTENT -->
-          <div class="hero-content-col">
-            <div class="hero-eyebrow">PERMANENT &bull; SECURE &bull; PRIVATE</div>
-            <h1 class="hero-main-title">
-              Your Inbox,<br />
-              <span class="gradient-text">On Your Terms.</span>
-            </h1>
-            <p class="hero-description">
-              Experience high-speed, permanent cloud mailboxes on official custom domains with automated real-time sync, zero tracking, and complete privacy.
-            </p>
+      <!-- MANDATORY AUTH VIEW (EXACT 100% COPY OF USER'S DOWNLOADED DESIGN) -->
+      <section id="mandatoryAuthView" class="stage-container">
+        <section class="intro">
+          <h1>Your inbox,<span>on your terms.</span></h1>
+          <p class="lead">Fast, permanent cloud mailboxes on official custom domains, with real-time sync, zero tracking and complete privacy.</p>
+          <ul class="feats">
+            <li><span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></span><div><strong>Instant activation</strong><small>Your cloud inbox is ready in seconds.</small></div></li>
+            <li><span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6L12 3Z"/></svg></span><div><strong>Custom cloud domains</strong><small>mailflux.online and freelancingaid.online</small></div></li>
+            <li><span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><div><strong>Private and permanent</strong><small>Zero tracking. Your emails never disappear.</small></div></li>
+          </ul>
+        </section>
 
-            <!-- 3 Features List with Glass Icon Badges -->
-            <div class="hero-features-list">
-              <div class="hero-feature-card">
-                <div class="feature-icon-badge">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                  </svg>
-                </div>
-                <div class="feature-text">
-                  <h4>Instant Activation</h4>
-                  <p>Permanent cloud inbox ready in seconds.</p>
-                </div>
-              </div>
+        <div class="stage">
+          <svg class="env e1" viewBox="0 0 110 76" fill="rgba(60,80,230,.12)" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="104" height="70" rx="8"/><path d="m5 8 50 38 50-38"/></svg>
+          <svg class="env e2" viewBox="0 0 110 76" fill="rgba(60,80,230,.15)" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="104" height="70" rx="8"/><path d="m5 8 50 38 50-38"/></svg>
 
-              <div class="hero-feature-card">
-                <div class="feature-icon-badge">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                  </svg>
-                </div>
-                <div class="feature-text">
-                  <h4>Custom Cloud Domains</h4>
-                  <p>mailflux.online &amp; freelancingaid.online</p>
-                </div>
-              </div>
-
-              <div class="hero-feature-card">
-                <div class="feature-icon-badge">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
-                </div>
-                <div class="feature-text">
-                  <h4>Private &amp; Permanent</h4>
-                  <p>Zero tracking, your emails never disappear.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- RIGHT CARD COLUMN WITH FLOATING 3D GLASS ENVELOPES -->
-          <div class="hero-card-col">
-            
-            <!-- 3D Floating Glass Envelope 1 (Top-Right) -->
-            <div class="floating-glass-envelope env-top">
-              <div class="envelope-glow-aura"></div>
-              <div class="glass-envelope-shape">
-                <svg viewBox="0 0 140 92" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="2" y="2" width="136" height="88" rx="14" fill="rgba(37, 99, 235, 0.16)" stroke="url(#envStroke)" stroke-width="2.2"/>
-                  <path d="M4 6L70 56L136 6" stroke="url(#envStroke)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <defs>
-                    <linearGradient id="envStroke" x1="0" y1="0" x2="140" y2="92" gradientUnits="userSpaceOnUse">
-                      <stop stop-color="#38BDF8"/>
-                      <stop offset="0.6" stop-color="#818CF8"/>
-                      <stop offset="1" stop-color="#C084FC"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              <div class="envelope-speed-line line-1"></div>
-              <div class="envelope-speed-line line-2"></div>
+          <div class="card">
+            <div class="tabs" data-view="signin" role="tablist" aria-label="Account">
+              <span class="pill"></span>
+              <button type="button" role="tab" id="t-signin" aria-selected="true" aria-controls="f-signin">Sign in</button>
+              <button type="button" role="tab" id="t-create" aria-selected="false" aria-controls="f-create">Create account</button>
             </div>
 
-            <!-- 3D Floating Glass Envelope 2 (Bottom-Right, Blurred) -->
-            <div class="floating-glass-envelope env-bottom">
-              <div class="glass-envelope-shape blurred">
-                <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="2" y="2" width="116" height="76" rx="12" fill="rgba(37, 99, 235, 0.12)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2"/>
-                  <path d="M3 6L60 48L117 6" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2"/>
-                </svg>
+            <!-- SIGN IN -->
+            <form id="f-signin" role="tabpanel" aria-labelledby="t-signin" novalidate="">
+              <div class="head"><h2>Welcome back</h2><p>Sign in to your permanent mailbox.</p></div>
+              <div class="field">
+                <label class="sr" for="si-email">Email address</label>
+                <div class="box">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>
+                  <input id="si-email" type="email" autocomplete="username" placeholder="you@mailflux.online" inputmode="email" autocapitalize="off" spellcheck="false">
+                </div>
+                <div class="msg" role="alert"></div>
               </div>
-            </div>
-
-            <!-- THE ULTRA GLASS CARD -->
-            <div class="pro-auth-card glass-panel">
-              <div class="card-logo-wrap">
-                <img src="logo.png" alt="MailFlux" class="card-logo-img" />
+              <div class="field">
+                <label class="sr" for="si-pass">Password</label>
+                <div class="box">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                  <input id="si-pass" type="password" autocomplete="current-password" placeholder="Enter your password">
+                  <button type="button" class="eye" aria-label="Show password" aria-pressed="false"></button>
+                </div>
+                <div class="msg" role="alert"></div>
               </div>
-
-              <!-- Card Dynamic Header -->
-              <h2 id="authCardTitle" class="card-headline">Welcome Back</h2>
-              <p id="authCardSubtitle" class="card-subhead">Sign in to your permanent mailbox</p>
-
-              <!-- SIGN IN FORM (DEFAULT ACTIVE) -->
-              <form id="landingLoginForm" class="auth-form-pane active">
-                <label for="loginAddress" class="form-field-label">Email Address</label>
-                <div class="input-field-group">
-                  <div class="input-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                    </svg>
-                  </div>
-                  <input type="email" id="loginAddress" placeholder="e.g. alex@mailflux.online" required autocomplete="email" />
-                </div>
-
-                <label for="loginPass" class="form-field-label">Password</label>
-                <div class="input-field-group">
-                  <div class="input-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                  </div>
-                  <input type="password" id="loginPass" placeholder="Enter your password" required autocomplete="current-password" />
-                  <button type="button" id="toggleLoginPassBtn" class="btn-eye-toggle" title="Toggle password visibility">
-                    <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                  </button>
-                </div>
-
-                <!-- Remember Me & Forgot Password Row -->
-                <div class="form-aux-row">
-                  <label class="checkbox-container">
-                    <input type="checkbox" id="rememberMeCheck" checked />
-                    <span class="custom-check">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                      </svg>
-                    </span>
-                    <span class="checkbox-text">Remember me</span>
-                  </label>
-                  <a href="javascript:void(0)" id="btnForgotPass" class="subtle-link">Forgot password?</a>
-                </div>
-
-                <!-- Gradient Submit Button -->
-                <button type="submit" id="btnSubmitLogin" class="btn-gradient-submit">
-                  <span>Sign In to Mailbox</span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
-                </button>
-              </form>
-
-              <!-- CREATE ACCOUNT FORM -->
-              <form id="landingCreateForm" class="auth-form-pane">
-                <label for="regUsername" class="form-field-label">Choose Mailbox Address</label>
-                <div class="input-field-group domain-select-group">
-                  <div class="input-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                  </div>
-                  <input type="text" id="regUsername" placeholder="yourname" required autocomplete="username" />
-                  <span class="addon-at-sym">@</span>
-                  <select id="regDomainSelect" required></select>
-                </div>
-
-                <label for="regPassword" class="form-field-label">Create Password</label>
-                <div class="input-field-group">
-                  <div class="input-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                  </div>
-                  <input type="password" id="regPassword" placeholder="Minimum 6 characters" required minlength="6" autocomplete="new-password" />
-                  <button type="button" id="toggleRegPassBtn" class="btn-eye-toggle" title="Toggle password visibility">
-                    <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                  </button>
-                </div>
-
-                <button type="submit" id="btnSubmitCreate" class="btn-gradient-submit">
-                  <span>Create Permanent Account</span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
-                </button>
-              </form>
-
-              <!-- Bottom Switch Link (No Google Button, purely clean & humanized) -->
-              <div class="card-footer-switch">
-                <span id="authSwitchPrompt">Don't have an account?</span>
-                <button type="button" id="btnSwitchAuthMode" class="btn-link-action">Create one</button>
+              <div class="row">
+                <label class="chk"><input type="checkbox" id="si-remember" checked=""><span class="tick"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2.5 6.2 2.4 2.4 4.6-5"/></svg></span>Remember me</label>
+                <a href="#forgot" id="si-forgot">Forgot password?</a>
               </div>
+              <button class="cta" type="submit"><span class="spin"></span><span class="lbl">Sign in</span><svg class="arr" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+              <div class="toast" role="status"></div>
+              <p class="swap">Don’t have an account? <a href="#create">Create one</a></p>
+            </form>
 
-              <!-- Hidden Tab Anchors for app.js state compatibility -->
-              <div style="display:none;">
-                <button id="tabSwitchCreate" type="button"></button>
-                <button id="tabSwitchLogin" type="button"></button>
+            <!-- CREATE -->
+            <form id="f-create" role="tabpanel" aria-labelledby="t-create" novalidate="" hidden="">
+              <div class="head"><h2>Create account</h2><p>Set up your permanent cloud mailbox.</p></div>
+              <div class="field">
+                <label class="sr" for="cr-user">Choose your address</label>
+                <div class="addr">
+                  <div class="box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.2-6 8-6s7 2 8 6"/></svg>
+                    <input id="cr-user" type="text" autocomplete="off" placeholder="username" autocapitalize="off" spellcheck="false" maxlength="40">
+                    <span class="at">@</span>
+                  </div>
+                  <div class="dom" id="dom">
+                    <button type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Email domain"><span id="dom-val">mailflux.online</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <ul class="menu" id="dom-menu" role="listbox" tabindex="-1">
+                      <li role="option" aria-selected="true" data-v="mailflux.online">mailflux.online</li>
+                      <li role="option" aria-selected="false" data-v="freelancingaid.online">freelancingaid.online</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="preview" id="preview">Your address: <em>username@mailflux.online</em></div>
+                <div class="msg" role="alert"></div>
               </div>
-            </div>
+              <div class="field">
+                <label class="sr" for="cr-pass">Password</label>
+                <div class="box">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                  <input id="cr-pass" type="password" autocomplete="new-password" placeholder="Password (min 6 characters)">
+                  <button type="button" class="eye" aria-label="Show password" aria-pressed="false"></button>
+                </div>
+                <div class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                <div class="hint" id="strength">Use 6+ characters. Add numbers and symbols for a stronger password.</div>
+                <div class="msg" role="alert"></div>
+              </div>
+              <button class="cta" type="submit"><span class="spin"></span><span class="lbl">Create account</span><svg class="arr" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+              <div class="toast" role="status"></div>
+              <p class="swap">Already have an account? <a href="#signin">Sign in</a></p>
+            </form>
           </div>
         </div>
       </section>
