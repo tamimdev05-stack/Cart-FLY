@@ -485,13 +485,20 @@ export default {
         }
 
         const senderAddress = authenticatedAddress;
-        const senderName = senderAddress.split('@')[0] || 'Mailflux User';
+        const senderHandle = senderAddress.split('@')[0] || 'User';
+        const senderDisplayName = `${senderHandle} (${senderAddress})`;
 
         const safeHtml = html || (text ? `<div style="font-family:sans-serif;white-space:pre-wrap;line-height:1.6;">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : '<p></p>');
 
+        // Brevo requires a verified sender until custom domains complete DNS authentication
+        // We set the verified sender with the Mailflux user's display name and set replyTo so replies come to the Mailflux address
         const brevoPayload = {
           sender: {
-            name: senderName,
+            name: senderDisplayName,
+            email: 'tamim.hasan2005@gmail.com'
+          },
+          replyTo: {
+            name: senderDisplayName,
             email: senderAddress
           },
           to: [
