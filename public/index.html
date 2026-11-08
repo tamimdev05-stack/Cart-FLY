@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.1">
+  <link rel="stylesheet" href="style.css?v=2.2">
 </head>
 <body>
   <!-- Ambient Atmospheric Lighting -->
@@ -36,6 +36,26 @@
           <svg width="30" height="22" viewBox="0 0 30 22" fill="none" aria-hidden="true"><defs><linearGradient id="lg" x1="0" x2="1"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#7c5cff"/></linearGradient></defs><path d="M2 5h8M0 10h9M3 15h7" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/><path d="M12 2h16a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H12a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" fill="url(#lg)"/><path d="m12.5 3.5 7.5 6.5 7.5-6.5" stroke="#05060f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Mail<b>Flux</b>
         </a>
+      </div>
+
+      <!-- CENTER SEARCH BAR (VISIBLE IN INBOX WORKSPACE) -->
+      <div id="navSearchContainer" class="nav-search-container hidden">
+        <div class="nav-search-bar">
+          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="topSearchInput" placeholder="Search emails, senders, or subjects..." autocomplete="off" spellcheck="false" />
+          <button type="button" id="topSearchClearBtn" class="btn-search-clear hidden" title="Clear search" aria-label="Clear search">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+          <div class="search-kbd-shortcut" title="Press / to search">
+            <kbd>/</kbd>
+          </div>
+        </div>
       </div>
 
       <div class="nav-right">
@@ -238,9 +258,15 @@
         <aside class="inbox-sidebar glass-sidebar">
           <div class="sidebar-controls">
             <div class="sidebar-title-bar">
-              <div class="title-with-count">
-                <h3 class="inbox-heading">Inbox</h3>
-                <span id="unreadBadge" class="badge-count">0</span>
+              <div class="folder-nav-tabs">
+                <button type="button" id="tabInbox" class="folder-tab-btn active" title="Inbox">
+                  <span class="folder-tab-label">Inbox</span>
+                  <span id="unreadBadge" class="badge-count">0</span>
+                </button>
+                <button type="button" id="tabSent" class="folder-tab-btn" title="Sent Mail">
+                  <span class="folder-tab-label">Sent</span>
+                  <span id="sentBadge" class="badge-count hidden">0</span>
+                </button>
               </div>
               <div class="sidebar-actions-group">
                 <button type="button" id="btnOpenCompose" class="btn-sidebar-compose" title="Compose new email">
@@ -257,14 +283,6 @@
                   </svg>
                 </button>
               </div>
-            </div>
-
-            <div class="search-bar">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input type="text" id="filterMessagesInput" placeholder="Search" />
             </div>
           </div>
 
@@ -532,6 +550,6 @@
   <!-- TOAST NOTIFICATION -->
   <div id="toast" class="toast"></div>
 
-  <script src="app.js?v=2.1"></script>
+  <script src="app.js?v=2.2"></script>
 </body>
 </html>

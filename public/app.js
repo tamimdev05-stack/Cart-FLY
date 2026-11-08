@@ -52,6 +52,24 @@ const manualRefreshIcon = document.getElementById('manualRefreshIcon');
 const filterMessagesInput = document.getElementById('filterMessagesInput');
 const messagesContainer = document.getElementById('messagesContainer');
 
+// Nav Search Bar Elements
+const navSearchContainer = document.getElementById('navSearchContainer');
+const topSearchInput = document.getElementById('topSearchInput');
+const topSearchClearBtn = document.getElementById('topSearchClearBtn');
+
+function getSearchQuery() {
+  if (topSearchInput && topSearchInput.value) return topSearchInput.value.trim();
+  if (filterMessagesInput && filterMessagesInput.value) return filterMessagesInput.value.trim();
+  return '';
+}
+
+// Folder State & Elements
+let currentFolder = 'inbox'; // 'inbox' | 'sent'
+let sentMessages = [];
+const tabInbox = document.getElementById('tabInbox');
+const tabSent = document.getElementById('tabSent');
+const sentBadge = document.getElementById('sentBadge');
+
 // Reader Elements
 const readerPlaceholder = document.getElementById('readerPlaceholder');
 
@@ -212,10 +230,77 @@ function setupEventHandlers() {
   // Manual Refresh
   if (manualRefreshBtn) manualRefreshBtn.addEventListener('click', triggerManualRefresh);
 
-  // Search Filter
+  // Folder Tabs (Inbox & Sent)
+  if (tabInbox) {
+    tabInbox.addEventListener('click', () => {
+      if (currentFolder === 'inbox') return;
+      currentFolder = 'inbox';
+      tabInbox.classList.add('active');
+      if (tabSent) tabSent.classList.remove('active');
+      activeMessageId = null;
+      if (readerPane) readerPane.classList.add('hidden');
+      if (readerPlaceholder) readerPlaceholder.classList.remove('hidden');
+      renderMessagesList(getSearchQuery());
+    });
+  }
+
+  if (tabSent) {
+    tabSent.addEventListener('click', async () => {
+      if (currentFolder === 'sent') return;
+      currentFolder = 'sent';
+      tabSent.classList.add('active');
+      if (tabInbox) tabInbox.classList.remove('active');
+      activeMessageId = null;
+      if (readerPane) readerPane.classList.add('hidden');
+      if (readerPlaceholder) readerPlaceholder.classList.remove('hidden');
+      renderMessagesList(getSearchQuery());
+      await fetchSentMessages();
+    });
+  }
+
+  // Top Navbar Search Filter
+  if (topSearchInput) {
+    topSearchInput.addEventListener('input', () => {
+      const q = topSearchInput.value;
+      if (topSearchClearBtn) {
+        if (q.length > 0) topSearchClearBtn.classList.remove('hidden');
+        else topSearchClearBtn.classList.add('hidden');
+      }
+      if (filterMessagesInput) filterMessagesInput.value = q;
+      renderMessagesList(q);
+    });
+
+    if (topSearchClearBtn) {
+      topSearchClearBtn.addEventListener('click', () => {
+        topSearchInput.value = '';
+        topSearchClearBtn.classList.add('hidden');
+        if (filterMessagesInput) filterMessagesInput.value = '';
+        renderMessagesList('');
+        topSearchInput.focus();
+      });
+    }
+
+    // Keyboard shortcut: Press '/' or 'Ctrl+K' to focus search
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === '/' || (e.ctrlKey && e.key.toLowerCase() === 'k')) && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        if (inboxWorkspace && !inboxWorkspace.classList.contains('hidden')) {
+          e.preventDefault();
+          topSearchInput.focus();
+          topSearchInput.select();
+        }
+      }
+      if (e.key === 'Escape' && document.activeElement === topSearchInput) {
+        topSearchInput.blur();
+      }
+    });
+  }
+
+  // Sidebar Search Filter (sync fallback)
   if (filterMessagesInput) {
     filterMessagesInput.addEventListener('input', () => {
-      renderMessagesList(filterMessagesInput.value);
+      const q = filterMessagesInput.value;
+      if (topSearchInput) topSearchInput.value = q;
+      renderMessagesList(q);
     });
   }
 
@@ -418,6 +503,10 @@ function setupEventHandlers() {
         showToast('Message sent successfully!');
         closeComposeModal();
         composeForm.reset();
+        await fetchSentMessages();
+        if (currentFolder === 'sent') {
+          renderMessagesList(getSearchQuery());
+        }
       } catch (err) {
         console.error('Send mail error:', err);
         showToast(err.message || 'Error delivering email');
@@ -535,6 +624,7 @@ function renderActiveSession() {
   // Workspace View
   if (mandatoryAuthView) mandatoryAuthView.classList.add('hidden');
   if (inboxWorkspace) inboxWorkspace.classList.remove('hidden');
+  if (navSearchContainer) navSearchContainer.classList.remove('hidden');
 
   renderRecentAccounts();
 
@@ -542,7 +632,7 @@ function renderActiveSession() {
   const cachedMsgs = loadCachedMessages(currentAccount.address);
   if (cachedMsgs && cachedMsgs.length > 0) {
     messages = cachedMsgs;
-    renderMessagesList(filterMessagesInput ? filterMessagesInput.value : '');
+    renderMessagesList(getSearchQuery());
   } else {
     messages = [];
   }
@@ -551,16 +641,27 @@ function renderActiveSession() {
   if (readerPane) readerPane.classList.add('hidden');
   if (readerPlaceholder) readerPlaceholder.classList.remove('hidden');
 
+  currentFolder = 'inbox';
+  if (tabInbox) tabInbox.classList.add('active');
+  if (tabSent) tabSent.classList.remove('active');
+
   fetchMessages();
+  fetchSentMessages();
 }
 
 function renderLoggedOutView() {
   stopSyncLoop();
   currentAccount = null;
+  sentMessages = [];
   localStorage.removeItem('mailtm_current_account');
 
   if (profileContainer) profileContainer.classList.add('hidden');
   if (loggedOutButtons) loggedOutButtons.classList.remove('hidden');
+  if (navSearchContainer) navSearchContainer.classList.add('hidden');
+  if (topSearchInput) topSearchInput.value = '';
+  if (topSearchClearBtn) topSearchClearBtn.classList.add('hidden');
+  if (filterMessagesInput) filterMessagesInput.value = '';
+  if (sentBadge) sentBadge.classList.add('hidden');
 
   if (mandatoryAuthView) mandatoryAuthView.classList.remove('hidden');
   if (inboxWorkspace) inboxWorkspace.classList.add('hidden');
@@ -1112,37 +1213,77 @@ async function fetchMessages() {
       // Persist to 24-hour local storage
       saveCachedMessages(currentAccount.address, messages);
 
-      renderMessagesList(filterMessagesInput.value);
+      if (currentFolder === 'inbox') {
+        renderMessagesList(getSearchQuery());
+      }
     }
   } catch(err) {
     console.error('Fetch error:', err);
   }
 }
 
+async function fetchSentMessages() {
+  if (!currentAccount || !currentAccount.token) return;
+  try {
+    const res = await fetch('/api/sent', {
+      headers: {
+        'Authorization': 'Bearer ' + currentAccount.token
+      }
+    });
+    const data = await res.json();
+    if (data.success && Array.isArray(data.messages)) {
+      sentMessages = data.messages;
+      if (sentBadge) {
+        sentBadge.textContent = sentMessages.length;
+        if (sentMessages.length > 0) sentBadge.classList.remove('hidden');
+        else sentBadge.classList.add('hidden');
+      }
+      if (currentFolder === 'sent') {
+        renderMessagesList(getSearchQuery());
+      }
+    }
+  } catch(e) {
+    console.warn('Fetch sent error:', e);
+  }
+}
+
 function renderMessagesList(filterText = '') {
   if (!currentAccount) return;
 
-  const filtered = messages.filter(m => {
+  const currentList = currentFolder === 'sent' ? sentMessages : messages;
+
+  const filtered = currentList.filter(m => {
     if (!filterText) return true;
     const q = filterText.toLowerCase();
     const sender = (m.from?.name || m.from?.address || '').toLowerCase();
+    const recips = (m.to?.map(t => t.address).join(' ') || '').toLowerCase();
     const sub = (m.subject || '').toLowerCase();
-    return sender.includes(q) || sub.includes(q);
+    return sender.includes(q) || recips.includes(q) || sub.includes(q);
   });
 
   const unreadCount = messages.filter(m => !m.seen).length;
-  unreadBadge.textContent = unreadCount;
-  unreadBadge.style.opacity = unreadCount > 0 ? '1' : '0.5';
+  if (unreadBadge) {
+    unreadBadge.textContent = unreadCount;
+    unreadBadge.style.opacity = unreadCount > 0 ? '1' : '0.5';
+  }
+
+  if (sentBadge) {
+    sentBadge.textContent = sentMessages.length;
+    if (sentMessages.length > 0) sentBadge.classList.remove('hidden');
+    else sentBadge.classList.add('hidden');
+  }
 
   if (filtered.length === 0) {
+    const isSent = currentFolder === 'sent';
     messagesContainer.innerHTML = `
       <div class="empty-state-list">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
-          <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+          ${isSent 
+            ? '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>'
+            : '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>'}
         </svg>
-        <h4>${messages.length === 0 ? 'No messages yet' : 'No matching emails'}</h4>
-        <p>${messages.length === 0 ? 'Emails sent to your address will appear here instantly.' : 'Try adjusting your filter search.'}</p>
+        <h4>${currentList.length === 0 ? (isSent ? 'No sent emails yet' : 'No messages yet') : 'No matching emails'}</h4>
+        <p>${currentList.length === 0 ? (isSent ? 'Emails you compose and send will be kept here.' : 'Emails sent to your address will appear here instantly.') : 'Try adjusting your search.'}</p>
       </div>
     `;
     return;
@@ -1151,20 +1292,23 @@ function renderMessagesList(filterText = '') {
   messagesContainer.innerHTML = '';
   filtered.forEach(msg => {
     const card = document.createElement('div');
-    card.className = 'msg-item-card' + (msg.id === activeMessageId ? ' active' : '') + (!msg.seen ? ' unread' : '');
+    const isSent = currentFolder === 'sent';
+    card.className = 'msg-item-card' + (msg.id === activeMessageId ? ' active' : '') + (!msg.seen && !isSent ? ' unread' : '');
 
-    const senderNameStr = msg.from?.name || msg.from?.address || 'Unknown';
-    const initial = senderNameStr.charAt(0).toUpperCase() || '?';
+    const contactName = isSent 
+      ? 'To: ' + (msg.to?.map(t => t.address).join(', ') || 'Recipient')
+      : (msg.from?.name || msg.from?.address || 'Unknown');
+    const initial = isSent ? '→' : (contactName.charAt(0).toUpperCase() || '?');
     const timeStr = formatHumanTime(msg.createdAt);
 
     card.innerHTML = `
-      <div class="msg-avatar-icon">${escapeHtml(initial)}</div>
+      <div class="msg-avatar-icon ${isSent ? 'sent-avatar' : ''}">${escapeHtml(initial)}</div>
       <div class="msg-item-details">
         <div class="msg-row-top">
-          <span class="msg-from-name" title="${escapeHtml(senderNameStr)}">${escapeHtml(senderNameStr)}</span>
+          <span class="msg-from-name" title="${escapeHtml(contactName)}">${escapeHtml(contactName)}</span>
           <div class="msg-time-wrap">
             <span class="msg-time-label">${timeStr}</span>
-            ${!msg.seen ? '<span class="unread-glow-dot" title="Unread"></span>' : ''}
+            ${!msg.seen && !isSent ? '<span class="unread-glow-dot" title="Unread"></span>' : ''}
           </div>
         </div>
         <div class="msg-subject-line">${escapeHtml(msg.subject || '(No Subject)')}</div>
@@ -1187,7 +1331,7 @@ async function loadMessage(id) {
     targetMsg.seen = true;
     saveCachedMessages(currentAccount.address, messages);
   }
-  renderMessagesList(filterMessagesInput.value);
+  renderMessagesList(getSearchQuery());
 
   // 2. Asynchronously notify backend to mark as seen on server
   fetch(`/api/messages/${id}`, {
@@ -1244,12 +1388,13 @@ async function deleteMessage(id) {
     if (data.success) {
       showToast('Message deleted');
       messages = messages.filter(m => m.id !== id);
+      sentMessages = sentMessages.filter(m => m.id !== id);
       saveCachedMessages(currentAccount.address, messages);
       try {
         localStorage.removeItem(getCacheKeyBody(currentAccount.address, id));
       } catch(e) {}
       activeMessageId = null;
-      renderMessagesList(filterMessagesInput.value);
+      renderMessagesList(getSearchQuery());
       readerPane.classList.add('hidden');
       readerPlaceholder.classList.remove('hidden');
     }
@@ -1260,9 +1405,11 @@ async function deleteMessage(id) {
 
 function triggerManualRefresh() {
   manualRefreshIcon.style.animation = 'spin 1s linear infinite';
-  fetchMessages().then(() => {
+  const p = currentFolder === 'sent' ? fetchSentMessages() : fetchMessages();
+  p.then(() => {
     setTimeout(() => {
       manualRefreshIcon.style.animation = '';
+      showToast('Checked for new messages');
     }, 600);
   });
 }

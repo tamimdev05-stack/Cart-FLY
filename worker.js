@@ -443,6 +443,16 @@ export default {
             }
           } catch(e) {}
 
+          // Also remove from user's sent list
+          const sentKey = `sent:${authenticatedAddress}`;
+          try {
+            const rawSent = await env.MAIL_KV.get(sentKey);
+            if (rawSent) {
+              const list = JSON.parse(rawSent).filter(m => m.id !== id);
+              await env.MAIL_KV.put(sentKey, JSON.stringify(list));
+            }
+          } catch(e) {}
+
           // Delete message body
           try {
             await env.MAIL_KV.delete(bodyKey);
@@ -528,10 +538,61 @@ export default {
           }, brevoRes.status);
         }
 
+        // Store sent message in KV
+        const sentMsgId = `sent_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const sentRecord = {
+          id: sentMsgId,
+          to: [{ address: to.trim() }],
+          from: { address: senderAddress, name: senderHandle },
+          subject: subject && subject.trim() ? subject.trim() : '(No Subject)',
+          intro: (text || '').substring(0, 100),
+          text: text || '',
+          html: [safeHtml],
+          createdAt: new Date().toISOString(),
+          timestamp: Date.now(),
+          isSent: true,
+          seen: true
+        };
+
+        try {
+          await env.MAIL_KV.put(`body:${sentMsgId}`, JSON.stringify(sentRecord), { expirationTtl: 86400 * 30 });
+          const sentKey = `sent:${authenticatedAddress}`;
+          let currentSent = [];
+          const rawSent = await env.MAIL_KV.get(sentKey);
+          if (rawSent) currentSent = JSON.parse(rawSent);
+          currentSent = [sentRecord, ...currentSent.filter(m => m.id !== sentMsgId)].slice(0, 100);
+          await env.MAIL_KV.put(sentKey, JSON.stringify(currentSent));
+        } catch(e) {
+          console.warn('Failed to record sent email in KV:', e);
+        }
+
         return jsonResponse({
           success: true,
           messageId: brevoData.messageId || 'sent',
-          message: 'Email delivered successfully!'
+          message: 'Email delivered successfully!',
+          sentRecord
+        });
+      }
+
+      // 8. Sent Messages (List)
+      if (pathname === '/sent' && method === 'GET') {
+        if (!authenticatedAddress) {
+          return jsonResponse({ success: false, error: 'Authorization header required.' }, 401);
+        }
+
+        const sentKey = `sent:${authenticatedAddress}`;
+        let messages = [];
+        try {
+          const rawSent = await env.MAIL_KV.get(sentKey);
+          if (rawSent) {
+            messages = JSON.parse(rawSent);
+          }
+        } catch(e) {}
+
+        return jsonResponse({
+          success: true,
+          messages,
+          total: messages.length
         });
       }
 
