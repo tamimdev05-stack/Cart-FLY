@@ -86,6 +86,7 @@ const modalToggleLoginPass = document.getElementById('modalToggleLoginPass');
 
 // Initialization
 window.addEventListener('DOMContentLoaded', async () => {
+  purgeExpiredLocalMails();
   setupEventHandlers();
   await loadDomains();
 
@@ -431,7 +432,15 @@ function renderActiveSession() {
 
   renderRecentAccounts();
 
-  messages = [];
+  // Restore 24-hour local cached messages instantly
+  const cachedMsgs = loadCachedMessages(currentAccount.address);
+  if (cachedMsgs && cachedMsgs.length > 0) {
+    messages = cachedMsgs;
+    renderMessagesList(filterMessagesInput ? filterMessagesInput.value : '');
+  } else {
+    messages = [];
+  }
+
   activeMessageId = null;
   if (readerPane) readerPane.classList.add('hidden');
   if (readerPlaceholder) readerPlaceholder.classList.remove('hidden');
@@ -843,6 +852,124 @@ function renderRecentAccounts() {
   }
 }
 
+// ==========================================================================
+// 24-HOUR LOCAL PC STORAGE FOR EMAILS
+// ==========================================================================
+const LOCAL_STORAGE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCacheKeyMessages(address) {
+  return `mailflux_cache_msgs_${(address || '').toLowerCase().trim()}`;
+}
+
+function getCacheKeyBody(address, messageId) {
+  return `mailflux_cache_body_${(address || '').toLowerCase().trim()}_${messageId}`;
+}
+
+function purgeExpiredLocalMails() {
+  try {
+    const now = Date.now();
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('mailflux_cache_msgs_') || key.startsWith('mailflux_cache_body_'))) {
+        try {
+          const item = JSON.parse(localStorage.getItem(key));
+          if (!item || !item.expiresAt || now > item.expiresAt) {
+            localStorage.removeItem(key);
+          }
+        } catch {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Cache purge error:', err);
+  }
+}
+
+function loadCachedMessages(address) {
+  if (!address) return [];
+  try {
+    purgeExpiredLocalMails();
+    const raw = localStorage.getItem(getCacheKeyMessages(address));
+    if (!raw) return [];
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.expiresAt || Date.now() > payload.expiresAt) {
+      localStorage.removeItem(getCacheKeyMessages(address));
+      return [];
+    }
+    return Array.isArray(payload.messages) ? payload.messages : [];
+  } catch (err) {
+    console.warn('Error loading cached messages:', err);
+    return [];
+  }
+}
+
+function saveCachedMessages(address, msgList) {
+  if (!address || !Array.isArray(msgList)) return;
+  try {
+    const payload = {
+      timestamp: Date.now(),
+      expiresAt: Date.now() + LOCAL_STORAGE_EXPIRY_MS,
+      messages: msgList
+    };
+    localStorage.setItem(getCacheKeyMessages(address), JSON.stringify(payload));
+  } catch (err) {
+    console.warn('Error saving cached messages:', err);
+  }
+}
+
+function loadCachedMessageBody(address, messageId) {
+  if (!address || !messageId) return null;
+  try {
+    const raw = localStorage.getItem(getCacheKeyBody(address, messageId));
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.expiresAt || Date.now() > payload.expiresAt) {
+      localStorage.removeItem(getCacheKeyBody(address, messageId));
+      return null;
+    }
+    return payload.data || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveCachedMessageBody(address, messageId, data) {
+  if (!address || !messageId || !data) return;
+  try {
+    const payload = {
+      timestamp: Date.now(),
+      expiresAt: Date.now() + LOCAL_STORAGE_EXPIRY_MS,
+      data
+    };
+    localStorage.setItem(getCacheKeyBody(address, messageId), JSON.stringify(payload));
+  } catch (err) {
+    purgeExpiredLocalMails();
+  }
+}
+
+function renderMessageDetails(msg) {
+  if (!msg) return;
+  readerSubject.textContent = msg.subject || '(No Subject)';
+  senderName.textContent = msg.from?.name || msg.from?.address || 'Unknown';
+  senderEmail.textContent = msg.from?.address ? `<${msg.from.address}>` : '';
+  senderAvatar.textContent = (senderName.textContent.charAt(0) || 'S').toUpperCase();
+  recipientAddress.textContent = msg.to?.map(t => t.address).join(', ') || (currentAccount ? currentAccount.address : '');
+  messageDate.textContent = msg.createdAt ? new Date(msg.createdAt).toLocaleString() : '';
+
+  let html = msg.html && msg.html.length > 0 ? (Array.isArray(msg.html) ? msg.html.join('') : msg.html) : '';
+  if (!html && msg.text) {
+    html = `<pre style="font-family: sans-serif; white-space: pre-wrap; padding: 20px; color: #222; word-break: break-word;">${linkify(escapeHtml(msg.text))}</pre>`;
+  }
+
+  const processedHtml = prepareEmailHtml(html);
+  const blob = new Blob([processedHtml], { type: 'text/html; charset=utf-8' });
+  emailFrame.src = URL.createObjectURL(blob);
+
+  textPreviewBody.innerHTML = linkify(escapeHtml(msg.text || '(No plain text body)'));
+  sourcePreviewBody.textContent = JSON.stringify(msg, null, 2);
+}
+
 async function fetchMessages() {
   if (!currentAccount || !currentAccount.token) return;
 
@@ -875,6 +1002,9 @@ async function fetchMessages() {
         }
         return m;
       });
+
+      // Persist to 24-hour local storage
+      saveCachedMessages(currentAccount.address, messages);
 
       renderMessagesList(filterMessagesInput.value);
     }
@@ -945,10 +1075,11 @@ async function loadMessage(id) {
   if (!currentAccount) return;
   activeMessageId = id;
 
-  // 1. Instantly mark as read locally so the dot disappears immediately
+  // 1. Instantly mark as read locally so the dot disappears immediately and persist
   const targetMsg = messages.find(m => m.id === id);
   if (targetMsg && !targetMsg.seen) {
     targetMsg.seen = true;
+    saveCachedMessages(currentAccount.address, messages);
   }
   renderMessagesList(filterMessagesInput.value);
 
@@ -964,11 +1095,17 @@ async function loadMessage(id) {
   readerPlaceholder.classList.add('hidden');
   readerPane.classList.remove('hidden');
 
-  readerSubject.textContent = 'Loading message...';
-  senderName.textContent = '...';
-  senderEmail.textContent = '';
-  recipientAddress.textContent = currentAccount.address;
-  messageDate.textContent = '...';
+  // Check 24-hour local storage first for instant rendering without waiting
+  const cachedMsg = loadCachedMessageBody(currentAccount.address, id);
+  if (cachedMsg) {
+    renderMessageDetails(cachedMsg);
+  } else {
+    readerSubject.textContent = 'Loading message...';
+    senderName.textContent = '...';
+    senderEmail.textContent = '';
+    recipientAddress.textContent = currentAccount.address;
+    messageDate.textContent = '...';
+  }
 
   try {
     const res = await fetch(`/api/messages/${id}`, {
@@ -978,28 +1115,15 @@ async function loadMessage(id) {
     if (!data.success) throw new Error(data.error);
 
     const msg = data.message;
-    readerSubject.textContent = msg.subject || '(No Subject)';
-    senderName.textContent = msg.from?.name || msg.from?.address || 'Unknown';
-    senderEmail.textContent = msg.from?.address ? `<${msg.from.address}>` : '';
-    senderAvatar.textContent = (senderName.textContent.charAt(0) || 'S').toUpperCase();
-    recipientAddress.textContent = msg.to?.map(t => t.address).join(', ') || currentAccount.address;
-    messageDate.textContent = new Date(msg.createdAt).toLocaleString();
-
-    let html = msg.html && msg.html.length > 0 ? (Array.isArray(msg.html) ? msg.html.join('') : msg.html) : '';
-    if (!html && msg.text) {
-      html = `<pre style="font-family: sans-serif; white-space: pre-wrap; padding: 20px; color: #222; word-break: break-word;">${linkify(escapeHtml(msg.text))}</pre>`;
-    }
-
-    const processedHtml = prepareEmailHtml(html);
-    const blob = new Blob([processedHtml], { type: 'text/html; charset=utf-8' });
-    emailFrame.src = URL.createObjectURL(blob);
-
-    textPreviewBody.innerHTML = linkify(escapeHtml(msg.text || '(No plain text body)'));
-    sourcePreviewBody.textContent = JSON.stringify(msg, null, 2);
+    // Persist full message to 24h local storage
+    saveCachedMessageBody(currentAccount.address, id, msg);
+    renderMessageDetails(msg);
 
   } catch(err) {
-    readerSubject.textContent = 'Error loading message';
-    textPreviewBody.textContent = err.message;
+    if (!cachedMsg) {
+      readerSubject.textContent = 'Error loading message';
+      textPreviewBody.textContent = err.message;
+    }
   }
 }
 
@@ -1014,6 +1138,10 @@ async function deleteMessage(id) {
     if (data.success) {
       showToast('Message deleted');
       messages = messages.filter(m => m.id !== id);
+      saveCachedMessages(currentAccount.address, messages);
+      try {
+        localStorage.removeItem(getCacheKeyBody(currentAccount.address, id));
+      } catch(e) {}
       activeMessageId = null;
       renderMessagesList(filterMessagesInput.value);
       readerPane.classList.add('hidden');
