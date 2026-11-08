@@ -416,7 +416,7 @@ async function loadDomains(forceFresh = false) {
           if (d.isActive) {
             const opt = document.createElement('option');
             opt.value = d.domain;
-            opt.textContent = '@' + d.domain;
+            opt.textContent = d.domain;
             select.appendChild(opt);
           }
         });
@@ -536,7 +536,7 @@ function switchLandingTab(tab) {
     if (landingLoginForm) landingLoginForm.classList.remove('active');
 
     if (cardTitle) cardTitle.textContent = 'Create Account';
-    if (cardSubhead) cardSubhead.textContent = 'Set up your private mailbox';
+    if (cardSubhead) cardSubhead.textContent = 'Set up your permanent cloud mailbox';
     if (switchPrompt) switchPrompt.textContent = 'Already have an account?';
     if (switchBtn) switchBtn.textContent = 'Sign in';
 
@@ -548,7 +548,7 @@ function switchLandingTab(tab) {
     if (landingCreateForm) landingCreateForm.classList.remove('active');
 
     if (cardTitle) cardTitle.textContent = 'Welcome Back';
-    if (cardSubhead) cardSubhead.textContent = 'Sign in to your account';
+    if (cardSubhead) cardSubhead.textContent = 'Sign in to your permanent mailbox';
     if (switchPrompt) switchPrompt.textContent = "Don't have an account?";
     if (switchBtn) switchBtn.textContent = 'Create one';
 
@@ -564,8 +564,8 @@ function switchModalTab(tab) {
     modalTabLogin.classList.remove('active');
     modalCreateForm.classList.add('active');
     modalLoginForm.classList.remove('active');
-    if (modalTitleEl) modalTitleEl.textContent = 'New Mailbox';
-    if (modalSubheadEl) modalSubheadEl.textContent = 'Set up an instant private address';
+    if (modalTitleEl) modalTitleEl.textContent = 'Create Permanent Mailbox';
+    if (modalSubheadEl) modalSubheadEl.textContent = 'Set up your personal address on our official domains';
     setTimeout(() => modalRegUsername && modalRegUsername.focus(), 50);
   } else {
     modalTabLogin.classList.add('active');
@@ -573,7 +573,7 @@ function switchModalTab(tab) {
     modalLoginForm.classList.add('active');
     modalCreateForm.classList.remove('active');
     if (modalTitleEl) modalTitleEl.textContent = 'Switch Account';
-    if (modalSubheadEl) modalSubheadEl.textContent = 'Sign in to access your mailbox';
+    if (modalSubheadEl) modalSubheadEl.textContent = 'Sign in to access your permanent mailbox';
     setTimeout(() => modalLoginEmail && modalLoginEmail.focus(), 50);
   }
 }

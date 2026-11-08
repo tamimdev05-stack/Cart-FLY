@@ -107,7 +107,6 @@ export default {
 
       const msgKey = `msg:${recipient}:${timestamp}:${msgId}`;
       await env.MAIL_KV.put(msgKey, JSON.stringify(parsed), {
-        expirationTtl: 86400,
         metadata
       });
 
@@ -220,7 +219,7 @@ export default {
           passwordHash: passHash,
           createdAt: existing ? JSON.parse(existing).createdAt : new Date().toISOString()
         };
-        await env.MAIL_KV.put(accountKey, JSON.stringify(accountRecord), { expirationTtl: 30 * 86400 });
+        await env.MAIL_KV.put(accountKey, JSON.stringify(accountRecord));
 
         const token = btoa(`${address}:${passHash}:${Date.now()}`);
 
@@ -266,7 +265,7 @@ export default {
             passwordHash: passHash,
             createdAt: new Date().toISOString()
           };
-          await env.MAIL_KV.put(accountKey, JSON.stringify(accountRecord), { expirationTtl: 30 * 86400 });
+          await env.MAIL_KV.put(accountKey, JSON.stringify(accountRecord));
         }
 
         const token = btoa(`${cleanAddress}:${passHash}:${Date.now()}`);
@@ -346,7 +345,7 @@ export default {
         const targetKeyObj = (kvList.keys || []).find(k => k.name.endsWith(':' + id) || (k.metadata && k.metadata.id === id));
 
         if (!targetKeyObj) {
-          return jsonResponse({ success: false, error: 'Message not found or expired.' }, 404);
+          return jsonResponse({ success: false, error: 'Message not found.' }, 404);
         }
 
         const msgKey = targetKeyObj.name;
@@ -393,7 +392,7 @@ export default {
             message.seen = true;
             const meta = targetKeyObj.metadata || {};
             meta.seen = true;
-            await env.MAIL_KV.put(msgKey, JSON.stringify(message), { expirationTtl: 86400, metadata: meta });
+            await env.MAIL_KV.put(msgKey, JSON.stringify(message), { metadata: meta });
           }
           return jsonResponse({ success: true, message: { id, seen: true } });
         }
