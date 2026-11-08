@@ -1269,14 +1269,28 @@ function renderMessagesList(filterText = '') {
 
   const unreadCount = messages.filter(m => !m.seen).length;
   if (unreadBadge) {
-    unreadBadge.textContent = unreadCount;
-    unreadBadge.style.opacity = unreadCount > 0 ? '1' : '0.5';
+    unreadBadge.textContent = messages.length;
+    if (messages.length > 0) {
+      unreadBadge.classList.remove('hidden');
+    } else {
+      unreadBadge.classList.add('hidden');
+    }
+    if (unreadCount > 0) {
+      unreadBadge.classList.add('has-unread');
+      unreadBadge.title = `${messages.length} messages (${unreadCount} unread)`;
+    } else {
+      unreadBadge.classList.remove('has-unread');
+      unreadBadge.title = `${messages.length} messages`;
+    }
   }
 
   if (sentBadge) {
     sentBadge.textContent = sentMessages.length;
-    if (sentMessages.length > 0) sentBadge.classList.remove('hidden');
-    else sentBadge.classList.add('hidden');
+    if (sentMessages.length > 0) {
+      sentBadge.classList.remove('hidden');
+    } else {
+      sentBadge.classList.add('hidden');
+    }
   }
 
   if (filtered.length === 0) {

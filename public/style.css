@@ -1394,9 +1394,15 @@ form[hidden] {
 }
 
 .folder-tab-btn.active .badge-count {
-  background: #3b82f6;
+  background: rgba(255, 255, 255, 0.2);
   color: #FFFFFF;
   box-shadow: none;
+}
+
+.folder-tab-btn .badge-count.has-unread {
+  background: #2563eb !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.45);
 }
 
 .folder-tab-btn .badge-count.hidden {
