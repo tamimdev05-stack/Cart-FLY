@@ -553,7 +553,7 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   PRO SPLIT HERO SECTION (MATCHING USER REFERENCE DESIGN)
+   USER LANDING PAGE SPECIFICATION (100% COPY OF MailFlux - Sign in.html)
    -------------------------------------------------------------------------- */
 .main-body {
   flex: 1;
@@ -562,11 +562,6 @@ body {
   position: relative;
   z-index: 10;
 }
-
-.pro-split-hero-view {
-/* --------------------------------------------------------------------------
-   USER LANDING PAGE SPECIFICATION (100% COPY OF MailFlux - Sign in.html)
-   -------------------------------------------------------------------------- */
 .stage-container {
   position: relative;
   z-index: 1;
@@ -579,6 +574,7 @@ body {
   margin: 0 auto;
   padding: 40px clamp(20px, 5vw, 48px) 56px;
   width: 100%;
+  flex: 1;
 }
 
 .intro h1 {
@@ -657,6 +653,7 @@ body {
   top: -48px;
   right: -64px;
   width: 136px;
+  height: 94px;
   transform: rotate(7deg);
   animation: float 7s ease-in-out infinite;
 }
@@ -664,6 +661,7 @@ body {
   bottom: -58px;
   right: -60px;
   width: 124px;
+  height: 86px;
   opacity: .28;
   transform: rotate(-8deg);
   animation: float 9s ease-in-out infinite reverse;
