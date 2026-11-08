@@ -1668,7 +1668,7 @@ form[hidden] {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  z-index: 250;
+  z-index: 1000;
   animation: modalOverlayFade 0.2s ease-out;
 }
 
@@ -1679,7 +1679,7 @@ form[hidden] {
 
 .glass-modal {
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
   background: rgba(13, 18, 36, 0.88);
   backdrop-filter: blur(50px) saturate(220%);
   -webkit-backdrop-filter: blur(50px) saturate(220%);
@@ -1735,20 +1735,27 @@ form[hidden] {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.btn-close-modal * {
+  pointer-events: none;
 }
 
 .btn-close-modal:hover {
-  background: rgba(244, 63, 94, 0.16);
-  border-color: rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.45);
   color: #FB7185;
   transform: rotate(90deg) scale(1.1);
 }
@@ -1819,6 +1826,145 @@ form[hidden] {
 @keyframes modalFormFade {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal Input Groups & Form Fields */
+.modal-content .input-field-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(8, 12, 26, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  height: 52px;
+  margin-bottom: 16px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.modal-content .input-field-group:focus-within {
+  border-color: rgba(99, 102, 241, 0.75);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: rgba(12, 17, 34, 0.95);
+}
+
+.modal-content .input-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+
+.modal-content .input-field-group input {
+  flex: 1;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #FFFFFF;
+  font-size: 14.5px;
+  font-family: inherit;
+  padding: 0 12px 0 0;
+  min-width: 0;
+}
+
+.modal-content .input-field-group input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Domain Select in Modal */
+.modal-content .domain-select-group {
+  display: flex;
+  align-items: center;
+}
+
+.modal-content .addon-at-sym {
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+  padding: 0 4px;
+  font-family: monospace;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.modal-content .domain-select-group select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #60A5FA;
+  font-weight: 600;
+  font-size: 13.5px;
+  font-family: inherit;
+  height: 38px;
+  padding: 0 12px;
+  margin-right: 8px;
+  outline: none;
+  cursor: pointer;
+  max-width: 175px;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+}
+
+.modal-content .domain-select-group select:focus {
+  border-color: rgba(96, 165, 250, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modal-content .domain-select-group select option {
+  background: #0D1224;
+  color: #FFFFFF;
+}
+
+/* Eye button in modal */
+.modal-content .btn-eye-toggle {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  width: 42px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.modal-content .btn-eye-toggle:hover {
+  color: #FFFFFF;
+}
+
+/* Submit Button in Modal */
+.modal-content .btn-gradient-submit {
+  width: 100%;
+  height: 50px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #3B82F6 0%, #7C3AED 50%, #D946EF 100%);
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.5);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-content .btn-gradient-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px -4px rgba(99, 102, 241, 0.65);
+  filter: brightness(1.08);
+}
+
+.modal-content .btn-gradient-submit:active {
+  transform: translateY(0);
 }
 
 /* --------------------------------------------------------------------------

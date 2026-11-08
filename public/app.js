@@ -187,28 +187,34 @@ function setupEventHandlers() {
   setupLandingUserAuth();
 
   // Clear Recent Landing Chips
-  if (btnLandingClearRecent) btnLandingClearRecent.addEventListener('click', () => {
-    localStorage.removeItem('mailtm_recent_accounts');
-    renderRecentAccounts();
-    showToast('Cleared saved accounts');
-  });
+  const btnLandingClearRecent = document.getElementById('btnLandingClearRecent');
+  if (btnLandingClearRecent) {
+    btnLandingClearRecent.addEventListener('click', () => {
+      localStorage.removeItem('mailtm_recent_accounts');
+      renderRecentAccounts();
+      showToast('Cleared saved accounts');
+    });
+  }
 
   // Manual Refresh
-  manualRefreshBtn.addEventListener('click', triggerManualRefresh);
+  if (manualRefreshBtn) manualRefreshBtn.addEventListener('click', triggerManualRefresh);
 
   // Search Filter
-  filterMessagesInput.addEventListener('input', () => {
-    renderMessagesList(filterMessagesInput.value);
-  });
-
+  if (filterMessagesInput) {
+    filterMessagesInput.addEventListener('input', () => {
+      renderMessagesList(filterMessagesInput.value);
+    });
+  }
 
   // Delete Message
-  btnDeleteMessage.addEventListener('click', async () => {
-    if (!activeMessageId) return;
-    if (confirm('Permanently delete this message?')) {
-      await deleteMessage(activeMessageId);
-    }
-  });
+  if (btnDeleteMessage) {
+    btnDeleteMessage.addEventListener('click', async () => {
+      if (!activeMessageId) return;
+      if (confirm('Permanently delete this message?')) {
+        await deleteMessage(activeMessageId);
+      }
+    });
+  }
 
   // Reader Tabs
   document.querySelectorAll('.reader-tab').forEach(tab => {
@@ -218,85 +224,108 @@ function setupEventHandlers() {
 
       tab.classList.add('active');
       const target = tab.dataset.tab;
-      if (target === 'preview') document.getElementById('panePreview').classList.add('active');
-      if (target === 'text') document.getElementById('paneText').classList.add('active');
-      if (target === 'source') document.getElementById('paneSource').classList.add('active');
+      if (target === 'preview') document.getElementById('panePreview')?.classList.add('active');
+      if (target === 'text') document.getElementById('paneText')?.classList.add('active');
+      if (target === 'source') document.getElementById('paneSource')?.classList.add('active');
     });
   });
 
   // Modal Setup
-  modalCloseBtn.addEventListener('click', () => authModal.classList.add('hidden'));
-  authModal.addEventListener('click', (e) => {
-    if (e.target === authModal) authModal.classList.add('hidden');
-  });
-
-  modalTabCreate.addEventListener('click', () => switchModalTab('create'));
-  modalTabLogin.addEventListener('click', () => switchModalTab('login'));
-
-  modalToggleRegPass.addEventListener('click', () => {
-    const isP = modalRegPassword.type === 'password';
-    modalRegPassword.type = isP ? 'text' : 'password';
-    modalToggleRegPass.innerHTML = isP 
-      ? '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>' 
-      : '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-  });
-
-  modalToggleLoginPass.addEventListener('click', () => {
-    const isP = modalLoginPass.type === 'password';
-    modalLoginPass.type = isP ? 'text' : 'password';
-    modalToggleLoginPass.innerHTML = isP 
-      ? '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>' 
-      : '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-  });
-
-  modalCreateForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const user = modalRegUsername.value.trim();
-    const dom = modalRegDomainSelect.value;
-    const pass = modalRegPassword.value.trim();
-    if (!user || !pass || pass.length < 6) return alert('Username & password (min 6 chars) required.');
-    
-    const btn = document.getElementById('modalSubmitCreateBtn');
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<span>Creating...</span>';
-    }
-    try {
-      await createAccount(user, dom, pass);
-      authModal.classList.add('hidden');
-    } catch(err) {
-      showToast(err.message || 'Failed to create mailbox');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<span>Create Mailbox</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (authModal) authModal.classList.add('hidden');
+    });
+  }
+  if (authModal) {
+    authModal.addEventListener('click', (e) => {
+      if (e.target === authModal) {
+        authModal.classList.add('hidden');
       }
-    }
-  });
-
-  modalLoginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const addr = modalLoginEmail.value.trim();
-    const pass = modalLoginPass.value.trim();
-    if (!addr || !pass) return alert('Both email and password are required.');
-
-    const btn = document.getElementById('modalSubmitLoginBtn');
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<span>Signing in...</span>';
-    }
-    try {
-      await loginAccount(addr, pass);
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && authModal && !authModal.classList.contains('hidden')) {
       authModal.classList.add('hidden');
-    } catch(err) {
-      showToast(err.message || 'Login failed. Check your password.');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<span>Switch Account</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
-      }
     }
   });
+
+  if (modalTabCreate) modalTabCreate.addEventListener('click', () => switchModalTab('create'));
+  if (modalTabLogin) modalTabLogin.addEventListener('click', () => switchModalTab('login'));
+
+  if (modalToggleRegPass) {
+    modalToggleRegPass.addEventListener('click', () => {
+      const isP = modalRegPassword.type === 'password';
+      modalRegPassword.type = isP ? 'text' : 'password';
+      modalToggleRegPass.innerHTML = isP 
+        ? '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>' 
+        : '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    });
+  }
+
+  if (modalToggleLoginPass) {
+    modalToggleLoginPass.addEventListener('click', () => {
+      const isP = modalLoginPass.type === 'password';
+      modalLoginPass.type = isP ? 'text' : 'password';
+      modalToggleLoginPass.innerHTML = isP 
+        ? '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>' 
+        : '<svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    });
+  }
+
+  if (modalCreateForm) {
+    modalCreateForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = modalRegUsername.value.trim();
+      const dom = modalRegDomainSelect.value;
+      const pass = modalRegPassword.value.trim();
+      if (!user || !pass || pass.length < 6) return alert('Username & password (min 6 chars) required.');
+      
+      const btn = document.getElementById('modalSubmitCreateBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Creating...</span>';
+      }
+      try {
+        await createAccount(user, dom, pass);
+        authModal.classList.add('hidden');
+      } catch(err) {
+        showToast(err.message || 'Failed to create mailbox');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>Create Mailbox</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+        }
+      }
+    });
+  }
+
+  if (modalLoginForm) {
+    modalLoginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const addr = modalLoginEmail.value.trim();
+      const pass = modalLoginPass.value.trim();
+      if (!addr || !pass) return alert('Both email and password are required.');
+
+      const btn = document.getElementById('modalSubmitLoginBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Signing in...</span>';
+      }
+      try {
+        await loginAccount(addr, pass);
+        authModal.classList.add('hidden');
+      } catch(err) {
+        showToast(err.message || 'Login failed. Check your password.');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>Switch Account</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+        }
+      }
+    });
+  }
 }
 
 function toggleProfileDropdown(open) {
