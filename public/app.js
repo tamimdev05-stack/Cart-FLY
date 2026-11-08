@@ -105,6 +105,7 @@ const modalToggleLoginPass = document.getElementById('modalToggleLoginPass');
 // Compose Modal Elements
 const composeModal = document.getElementById('composeModal');
 const btnOpenCompose = document.getElementById('btnOpenCompose');
+const composeMaximizeBtn = document.getElementById('composeMaximizeBtn');
 const composeCloseBtn = document.getElementById('composeCloseBtn');
 const composeCancelBtn = document.getElementById('composeCancelBtn');
 const composeForm = document.getElementById('composeForm');
@@ -448,7 +449,18 @@ function setupEventHandlers() {
   }
 
   function closeComposeModal() {
-    if (composeModal) composeModal.classList.add('hidden');
+    if (composeModal) {
+      composeModal.classList.add('hidden');
+      composeModal.classList.remove('is-fullscreen');
+    }
+  }
+
+  if (composeMaximizeBtn) {
+    composeMaximizeBtn.addEventListener('click', () => {
+      if (composeModal) {
+        composeModal.classList.toggle('is-fullscreen');
+      }
+    });
   }
 
   if (composeCloseBtn) composeCloseBtn.addEventListener('click', closeComposeModal);

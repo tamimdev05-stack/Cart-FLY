@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.5">
+  <link rel="stylesheet" href="style.css?v=2.6">
   <script>
     (function() {
       try {
@@ -506,12 +506,28 @@
           <h3>New Message</h3>
           <p class="modal-subhead">Send email directly from your custom mailbox</p>
         </div>
-        <button type="button" id="composeCloseBtn" class="btn-close-modal" aria-label="Close" title="Close">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+        <div class="modal-header-actions">
+          <button type="button" id="composeMaximizeBtn" class="btn-modal-action" aria-label="Toggle Fullscreen" title="Toggle Fullscreen">
+            <svg class="icon-maximize" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M15 3h6v6"></path>
+              <path d="M9 21H3v-6"></path>
+              <path d="M21 3l-7 7"></path>
+              <path d="M3 21l7-7"></path>
+            </svg>
+            <svg class="icon-minimize hidden" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M4 14h6v6"></path>
+              <path d="M20 10h-6V4"></path>
+              <path d="M14 10l7-7"></path>
+              <path d="M10 14L3 21"></path>
+            </svg>
+          </button>
+          <button type="button" id="composeCloseBtn" class="btn-close-modal" aria-label="Close" title="Close">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="modal-content compose-modal-content">
@@ -563,6 +579,6 @@
   <!-- TOAST NOTIFICATION -->
   <div id="toast" class="toast"></div>
 
-  <script src="app.js?v=2.5"></script>
+  <script src="app.js?v=2.6"></script>
 </body>
 </html>
