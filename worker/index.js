@@ -1,13 +1,23 @@
 // Cloudflare Worker for Mailflux
 // Handles:
 // 1. Inbound Email Processing via Cloudflare Email Routing
-// 2. Full REST API for Accounts, Inboxes, and Message Reading
+// 2. High-Performance Instant Synchronization via KV Key Metadata & Listing
 // 3. Auto-expiring storage via Cloudflare Workers KV (Zero DB maintenance)
 
 // Helper: Simple MIME parser for raw emails
 function parseRawEmail(raw, message) {
-  const subject = message.headers.get('subject') || '(No Subject)';
-  const from = message.from || message.headers.get('from') || 'Unknown';
+  let subject = message.headers.get('subject') || '';
+  if (!subject) {
+    const subjMatch = raw.match(/\r?\nSubject:\s*([^\r\n]+)/i);
+    subject = subjMatch ? subjMatch[1].trim() : '(No Subject)';
+  }
+
+  let from = message.from || message.headers.get('from') || '';
+  if (!from) {
+    const fromMatch = raw.match(/\r?\nFrom:\s*([^\r\n]+)/i);
+    from = fromMatch ? fromMatch[1].trim() : 'Unknown';
+  }
+
   const to = message.to || message.headers.get('to') || '';
   const date = message.headers.get('date') || new Date().toISOString();
 
@@ -15,7 +25,7 @@ function parseRawEmail(raw, message) {
   let htmlBody = '';
 
   // Look for Content-Type boundary
-  const contentType = message.headers.get('content-type') || '';
+  const contentType = message.headers.get('content-type') || raw.match(/\r?\nContent-Type:\s*([^\r\n]+)/i)?.[1] || '';
   const boundaryMatch = contentType.match(/boundary=["']?([^"';]+)["']?/i);
 
   if (boundaryMatch) {
@@ -34,7 +44,6 @@ function parseRawEmail(raw, message) {
       const isHtml = /content-type:[^;\n]*text\/html/i.test(partHeaders);
       const isPlain = /content-type:[^;\n]*text\/plain/i.test(partHeaders);
 
-      // Handle Quoted-Printable decoding
       const isQP = /content-transfer-encoding:\s*quoted-printable/i.test(partHeaders);
       const isBase64 = /content-transfer-encoding:\s*base64/i.test(partHeaders);
 
@@ -70,11 +79,11 @@ function parseRawEmail(raw, message) {
   const intro = (textBody || htmlBody.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim().substring(0, 120);
 
   return {
-    subject,
+    subject: subject || '(No Subject)',
     from: { address: from, name: from.split('<')[0].replace(/["']/g, '').trim() || from },
     to: [{ address: to }],
     createdAt: new Date().toISOString(),
-    intro,
+    intro: intro || '',
     text: textBody,
     html: htmlBody ? [htmlBody] : [],
     raw
@@ -120,32 +129,30 @@ export default {
       const rawText = await new Response(message.raw).text();
       const parsed = parseRawEmail(rawText, message);
 
-      const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+      const timestamp = Date.now();
+      const msgId = 'msg_' + timestamp + '_' + Math.random().toString(36).substring(2, 8);
       parsed.id = msgId;
       parsed.seen = false;
 
-      // Save message in KV with 24 hours (86,400s) TTL
-      // KV Key: msg:{recipient}:{msgId}
-      const msgKey = `msg:${recipient}:${msgId}`;
-      await env.MAIL_KV.put(msgKey, JSON.stringify(parsed), { expirationTtl: 86400 });
-
-      // Update recipient's message index list in KV
-      const indexKey = `inbox:${recipient}`;
-      const existingRaw = await env.MAIL_KV.get(indexKey);
-      let list = existingRaw ? JSON.parse(existingRaw) : [];
-      // Keep summary object in index list for fast list rendering
-      list.unshift({
+      // Metadata stored with key for instantaneous listing without secondary queries
+      const metadata = {
         id: parsed.id,
         from: parsed.from,
         to: parsed.to,
         subject: parsed.subject,
         intro: parsed.intro,
         seen: false,
-        createdAt: parsed.createdAt
+        createdAt: parsed.createdAt,
+        timestamp
+      };
+
+      // Key format: msg:{recipient}:{timestamp}:{msgId}
+      // Storing timestamp in key guarantees alphabetical list reverse sort
+      const msgKey = `msg:${recipient}:${timestamp}:${msgId}`;
+      await env.MAIL_KV.put(msgKey, JSON.stringify(parsed), {
+        expirationTtl: 86400,
+        metadata
       });
-      // Limit to latest 100 messages per mailbox
-      list = list.slice(0, 100);
-      await env.MAIL_KV.put(indexKey, JSON.stringify(list), { expirationTtl: 86400 });
 
       console.log(`✅ Stored message for ${recipient}: "${parsed.subject}" (ID: ${msgId})`);
     } catch(err) {
@@ -200,7 +207,7 @@ export default {
         });
       }
 
-      // 2. Create Account (Username & Password strictly required)
+      // 2. Create Account
       if (pathname === '/create-account' && method === 'POST') {
         let body = {};
         try { body = await request.json(); } catch(e) {
@@ -237,7 +244,6 @@ export default {
           }
         }
 
-        // Store account credentials in KV (retained for 30 days)
         const accountRecord = {
           id: address,
           address,
@@ -246,7 +252,6 @@ export default {
         };
         await env.MAIL_KV.put(accountKey, JSON.stringify(accountRecord), { expirationTtl: 30 * 86400 });
 
-        // Token is base64 representation of address + hash (simple, stateless edge token)
         const token = btoa(`${address}:${passHash}:${Date.now()}`);
 
         return jsonResponse({
@@ -285,7 +290,6 @@ export default {
             return jsonResponse({ success: false, error: 'Invalid email or password. Password সঠিক নয় অথবা একাউন্টটি পাওয়া যায়নি।' }, 401);
           }
         } else {
-          // If account wasn't pre-created (e.g. created on the fly with password), register it:
           const accountRecord = {
             id: cleanAddress,
             address: cleanAddress,
@@ -320,15 +324,40 @@ export default {
         } catch(e) {}
       }
 
-      // 4. Messages (List)
+      // 4. Messages (List) - Always uses authoritative KV list with instant metadata
       if (pathname === '/messages' && method === 'GET') {
         if (!authenticatedAddress) {
           return jsonResponse({ success: false, error: 'Authorization header required. Please login.' }, 401);
         }
 
-        const indexKey = `inbox:${authenticatedAddress}`;
-        const rawList = await env.MAIL_KV.get(indexKey);
-        const messages = rawList ? JSON.parse(rawList) : [];
+        // List all message keys for this recipient
+        const prefix = `msg:${authenticatedAddress}:`;
+        const kvList = await env.MAIL_KV.list({ prefix, limit: 100 });
+
+        const messages = [];
+        for (const item of (kvList.keys || [])) {
+          if (item.metadata && item.metadata.id) {
+            messages.push(item.metadata);
+          } else {
+            // Fallback for older format keys without metadata
+            const raw = await env.MAIL_KV.get(item.name);
+            if (raw) {
+              const p = JSON.parse(raw);
+              messages.push({
+                id: p.id,
+                from: p.from,
+                to: p.to,
+                subject: p.subject,
+                intro: p.intro,
+                seen: p.seen,
+                createdAt: p.createdAt
+              });
+            }
+          }
+        }
+
+        // Sort newest first
+        messages.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
         return jsonResponse({
           success: true,
@@ -345,13 +374,19 @@ export default {
         }
 
         const id = msgMatch[1];
-        const msgKey = `msg:${authenticatedAddress}:${id}`;
+        const prefix = `msg:${authenticatedAddress}:`;
+        const kvList = await env.MAIL_KV.list({ prefix });
+        const targetKeyObj = (kvList.keys || []).find(k => k.name.endsWith(':' + id) || (k.metadata && k.metadata.id === id));
+
+        if (!targetKeyObj) {
+          return jsonResponse({ success: false, error: 'Message not found or expired.' }, 404);
+        }
+
+        const msgKey = targetKeyObj.name;
 
         if (method === 'GET') {
           const rawMsg = await env.MAIL_KV.get(msgKey);
-          if (!rawMsg) {
-            return jsonResponse({ success: false, error: 'Message not found or expired.' }, 404);
-          }
+          if (!rawMsg) return jsonResponse({ success: false, error: 'Message content not found' }, 404);
           const message = JSON.parse(rawMsg);
           return jsonResponse({ success: true, message });
         }
@@ -361,33 +396,15 @@ export default {
           if (rawMsg) {
             const message = JSON.parse(rawMsg);
             message.seen = true;
-            await env.MAIL_KV.put(msgKey, JSON.stringify(message), { expirationTtl: 86400 });
+            const meta = targetKeyObj.metadata || {};
+            meta.seen = true;
+            await env.MAIL_KV.put(msgKey, JSON.stringify(message), { expirationTtl: 86400, metadata: meta });
           }
-
-          // Update index list seen state as well
-          const indexKey = `inbox:${authenticatedAddress}`;
-          const rawList = await env.MAIL_KV.get(indexKey);
-          if (rawList) {
-            let list = JSON.parse(rawList);
-            list = list.map(m => m.id === id ? { ...m, seen: true } : m);
-            await env.MAIL_KV.put(indexKey, JSON.stringify(list), { expirationTtl: 86400 });
-          }
-
           return jsonResponse({ success: true, message: { id, seen: true } });
         }
 
         if (method === 'DELETE') {
           await env.MAIL_KV.delete(msgKey);
-
-          // Remove from index list
-          const indexKey = `inbox:${authenticatedAddress}`;
-          const rawList = await env.MAIL_KV.get(indexKey);
-          if (rawList) {
-            let list = JSON.parse(rawList);
-            list = list.filter(m => m.id !== id);
-            await env.MAIL_KV.put(indexKey, JSON.stringify(list), { expirationTtl: 86400 });
-          }
-
           return jsonResponse({ success: true, message: 'Message deleted successfully' });
         }
       }
@@ -400,9 +417,13 @@ export default {
         }
 
         const id = srcMatch[1];
-        const msgKey = `msg:${authenticatedAddress}:${id}`;
-        const rawMsg = await env.MAIL_KV.get(msgKey);
-        if (!rawMsg) return jsonResponse({ success: false, error: 'Source not found' }, 404);
+        const prefix = `msg:${authenticatedAddress}:`;
+        const kvList = await env.MAIL_KV.list({ prefix });
+        const targetKeyObj = (kvList.keys || []).find(k => k.name.endsWith(':' + id) || (k.metadata && k.metadata.id === id));
+        if (!targetKeyObj) return jsonResponse({ success: false, error: 'Source not found' }, 404);
+
+        const rawMsg = await env.MAIL_KV.get(targetKeyObj.name);
+        if (!rawMsg) return jsonResponse({ success: false, error: 'Source data empty' }, 404);
 
         const parsed = JSON.parse(rawMsg);
         return jsonResponse({ success: true, source: { data: parsed.raw || '' } });

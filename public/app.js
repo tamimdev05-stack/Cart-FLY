@@ -840,10 +840,14 @@ function startSyncLoop() {
   stopSyncLoop();
   if (!currentAccount) return;
 
+  // Immediate fetch upon activating session
+  fetchMessages();
+
+  // High-speed 2-second background sync
   countdownInterval = setInterval(() => {
     if (!currentAccount) return;
     fetchMessages();
-  }, 5000);
+  }, 2000);
 }
 
 function stopSyncLoop() {
