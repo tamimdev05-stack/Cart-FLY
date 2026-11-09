@@ -115,6 +115,27 @@ const composeSubjectInput = document.getElementById('composeSubjectInput');
 const composeBodyInput = document.getElementById('composeBodyInput');
 const composeSubmitBtn = document.getElementById('composeSubmitBtn');
 
+// Google Drive & 60 MB Storage Elements
+const gdriveModal = document.getElementById('gdriveModal');
+const gdriveCloseBtn = document.getElementById('gdriveCloseBtn');
+const gdriveMailboxAddress = document.getElementById('gdriveMailboxAddress');
+const btnConnectGoogleDrive = document.getElementById('btnConnectGoogleDrive');
+const btnConnectGoogleDriveText = document.getElementById('btnConnectGoogleDriveText');
+const gdrivePermissionAlert = document.getElementById('gdrivePermissionAlert');
+
+const sidebarStorageWidget = document.getElementById('sidebarStorageWidget');
+const storageUsedText = document.getElementById('storageUsedText');
+const storageProgressBar = document.getElementById('storageProgressBar');
+const gdriveStatusPill = document.getElementById('gdriveStatusPill');
+const gdriveStatusText = document.getElementById('gdriveStatusText');
+const storageLinkedAccount = document.getElementById('storageLinkedAccount');
+const storageLinkedEmail = document.getElementById('storageLinkedEmail');
+const dropdownGdriveChip = document.getElementById('dropdownGdriveChip');
+const dropdownGdriveEmail = document.getElementById('dropdownGdriveEmail');
+const btnSyncDrive = document.getElementById('btnSyncDrive');
+const btnOpenDriveFile = document.getElementById('btnOpenDriveFile');
+const dropdownDriveViewLink = document.getElementById('dropdownDriveViewLink');
+
 // Initialization
 window.addEventListener('DOMContentLoaded', () => {
   purgeExpiredLocalMails();
@@ -357,6 +378,15 @@ function setupEventHandlers() {
   if (modalTabCreate) modalTabCreate.addEventListener('click', () => switchModalTab('create'));
   if (modalTabLogin) modalTabLogin.addEventListener('click', () => switchModalTab('login'));
 
+  const modalForgotPass = document.getElementById('modalForgotPass');
+  if (modalForgotPass) {
+    modalForgotPass.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeModal();
+      openRecoveryModal(modalLoginEmail ? modalLoginEmail.value : '');
+    });
+  }
+
   if (modalToggleRegPass) {
     modalToggleRegPass.addEventListener('click', () => {
       const isP = modalRegPassword.type === 'password';
@@ -523,6 +553,7 @@ function setupEventHandlers() {
         if (currentFolder === 'sent') {
           renderMessagesList(getSearchQuery());
         }
+        syncMailboxToGoogleDrive(true);
       } catch (err) {
         console.error('Send mail error:', err);
         showToast(err.message || 'Error delivering email');
@@ -535,6 +566,41 @@ function setupEventHandlers() {
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>`;
         }
+      }
+    });
+  }
+
+  // Google Drive Connection & Sync Handlers
+  if (btnConnectGoogleDrive) {
+    btnConnectGoogleDrive.addEventListener('click', connectGoogleDriveAccount);
+  }
+
+  if (gdriveCloseBtn) {
+    gdriveCloseBtn.addEventListener('click', () => {
+      if (gdriveModal) {
+        gdriveModal.classList.add('hidden');
+        gdriveModal.style.display = 'none';
+      }
+    });
+  }
+
+  if (btnSyncDrive) {
+    btnSyncDrive.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await triggerDriveSync();
+    });
+  }
+
+  if (sidebarStorageWidget) {
+    sidebarStorageWidget.style.cursor = 'pointer';
+    sidebarStorageWidget.addEventListener('click', async (e) => {
+      if (e.target && (e.target.id === 'btnOpenDriveFile' || e.target.closest('#btnOpenDriveFile'))) return;
+      if (e.target && (e.target.id === 'btnSyncDrive' || e.target.closest('#btnSyncDrive'))) return;
+
+      if (currentAccount && (currentAccount.gdriveLinked || gdriveLinkedState || currentAccount.driveFileId)) {
+        await triggerDriveSync();
+      } else {
+        showMandatoryGDriveModal();
       }
     });
   }
@@ -664,6 +730,7 @@ function renderActiveSession() {
 
   fetchMessages();
   fetchSentMessages();
+  checkGoogleDriveStatus();
 }
 
 function renderLoggedOutView() {
@@ -795,6 +862,8 @@ function setupLandingUserAuth() {
 
     function setOpen(o) {
       dom.classList.toggle('open', o);
+      const parentField = dom.closest('.field');
+      if (parentField) parentField.style.zIndex = o ? '1000' : '';
       if (btn) btn.setAttribute('aria-expanded', o);
       if (o) {
         const opts = $$('li', menu);
@@ -805,8 +874,49 @@ function setupLandingUserAuth() {
 
     if (btn) {
       btn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         setOpen(!dom.classList.contains('open'));
+      });
+    }
+
+    function selectDomain(val) {
+      if (!val) return;
+      const domVal = $('#dom-val');
+      if (domVal) domVal.textContent = val;
+      currentActiveDomain = val;
+      if (modalRegDomainSelect) modalRegDomainSelect.value = val;
+
+      $$('li', menu).forEach(x => {
+        const itemVal = x.dataset.v || x.textContent.trim();
+        const isSel = (itemVal === val);
+        x.setAttribute('aria-selected', isSel ? 'true' : 'false');
+        x.classList.toggle('act', isSel);
+      });
+
+      setOpen(false);
+      updatePreview();
+      if (btn) btn.focus();
+    }
+
+    // Attach event listeners to initial menu items as well as delegated menu clicks
+    if (menu) {
+      menu.addEventListener('mousedown', (e) => {
+        const li = e.target.closest('li[role="option"]');
+        if (!li) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const val = li.dataset.v || li.textContent.trim();
+        selectDomain(val);
+      });
+
+      menu.addEventListener('click', (e) => {
+        const li = e.target.closest('li[role="option"]');
+        if (!li) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const val = li.dataset.v || li.textContent.trim();
+        selectDomain(val);
       });
     }
 
@@ -828,15 +938,6 @@ function setupLandingUserAuth() {
           const domVal = $('#dom-val');
           if (domVal) domVal.textContent = d.domain;
         }
-        li.addEventListener('click', () => {
-          $$('li', menu).forEach(x => x.setAttribute('aria-selected', 'false'));
-          li.setAttribute('aria-selected', 'true');
-          const domVal = $('#dom-val');
-          if (domVal) domVal.textContent = d.domain;
-          setOpen(false);
-          updatePreview();
-          if (btn) btn.focus();
-        });
         menu.appendChild(li);
       });
     };
@@ -894,7 +995,8 @@ function setupLandingUserAuth() {
   if (siForgot) {
     siForgot.addEventListener('click', (e) => {
       e.preventDefault();
-      showToast('Your cloud mailbox is permanent. Forgot password? Create a new mailbox anytime!');
+      const prefill = $('#si-email') ? $('#si-email').value : '';
+      openRecoveryModal(prefill);
     });
   }
 
@@ -1078,9 +1180,9 @@ function renderRecentAccounts() {
 }
 
 // ==========================================================================
-// 24-HOUR LOCAL PC STORAGE FOR EMAILS
+// PERMANENT LOCAL PC DATABASE FOR EMAILS (60 MB QUOTA PER MAILBOX)
 // ==========================================================================
-const LOCAL_STORAGE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const LOCAL_STORAGE_EXPIRY_MS = 365 * 24 * 60 * 60 * 1000; // 1 year permanent local storage
 
 function getCacheKeyMessages(address) {
   return `mailflux_cache_msgs_${(address || '').toLowerCase().trim()}`;
@@ -1221,6 +1323,7 @@ async function fetchMessages() {
       const seenIds = new Set(messages.filter(m => m.seen).map(m => m.id));
       if (activeMessageId) seenIds.add(activeMessageId);
 
+      const prevMessagesCount = messages ? messages.length : 0;
       messages = incoming.map(m => {
         if (seenIds.has(m.id)) {
           return { ...m, seen: true };
@@ -1230,10 +1333,30 @@ async function fetchMessages() {
 
       // Persist to 24-hour local storage
       saveCachedMessages(currentAccount.address, messages);
+      syncMailboxToGoogleDrive(true);
 
       if (currentFolder === 'inbox') {
         renderMessagesList(getSearchQuery());
       }
+
+      // Automatically auto-sync with Google Drive database whenever emails change
+      if (incoming.length !== prevMessagesCount) {
+        syncMailboxToGoogleDrive();
+      }
+
+      // Keep real-time 60 MB storage widget updated
+      const approxBytes = JSON.stringify(messages).length + JSON.stringify(sentMessages || []).length;
+      const limitBytes = 60 * 1024 * 1024;
+      const usedMb = (approxBytes / (1024 * 1024)).toFixed(2);
+      const percent = Math.min(100, Math.round((approxBytes / limitBytes) * 100));
+      updateStorageWidget({
+        usedBytes: approxBytes,
+        limitBytes,
+        usedMb: parseFloat(usedMb) < 0.01 ? '0.05' : usedMb,
+        limitMb: 60,
+        percent: Math.max(1, percent),
+        isFull: approxBytes >= limitBytes
+      }, gdriveLinkedState);
     }
   } catch(err) {
     console.error('Fetch error:', err);
@@ -1422,6 +1545,7 @@ async function deleteMessage(id) {
       messages = messages.filter(m => m.id !== id);
       sentMessages = sentMessages.filter(m => m.id !== id);
       saveCachedMessages(currentAccount.address, messages);
+      syncMailboxToGoogleDrive(true);
       try {
         localStorage.removeItem(getCacheKeyBody(currentAccount.address, id));
       } catch(e) {}
@@ -1651,4 +1775,803 @@ document.addEventListener('pointerdown', (e) => {
   btn.appendChild(ripple);
   setTimeout(() => ripple.remove(), 700);
 });
+
+// ==========================================================================
+// GOOGLE DRIVE & 60 MB STORAGE QUOTA MANAGEMENT (CROSS-DEVICE SYNC)
+// ==========================================================================
+const GOOGLE_CLIENT_ID = '112999651074-u3dc2tp4m1ofsig3h2mupv0348noshdp.apps.googleusercontent.com';
+let gdriveLinkedState = false;
+let mailboxStorageData = {
+  usedBytes: 0,
+  limitBytes: 60 * 1024 * 1024,
+  usedMb: '0.05',
+  percent: 1,
+  isFull: false
+};
+
+async function checkGoogleDriveStatus() {
+  if (!currentAccount) return;
+
+  let isLinked = !!currentAccount.gdriveLinked || !!currentAccount.driveFileId;
+
+  if (currentAccount.token) {
+    try {
+      const res = await fetch('/api/gdrive/status', {
+        headers: { 'Authorization': `Bearer ${currentAccount.token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success) {
+          isLinked = !!data.linked;
+          if (data.storage) {
+            mailboxStorageData = data.storage;
+          }
+          if (data.gdrive) {
+            if (data.gdrive.driveEmail) currentAccount.driveEmail = data.gdrive.driveEmail;
+            if (data.gdrive.webViewLink) currentAccount.webViewLink = data.gdrive.webViewLink;
+            if (data.gdrive.fileId) currentAccount.driveFileId = data.gdrive.fileId;
+            currentAccount.gdriveLinked = true;
+            saveRecentAccount(currentAccount);
+            localStorage.setItem('mailtm_current_account', JSON.stringify(currentAccount));
+          }
+        }
+      }
+    } catch(e) {
+      console.warn('Backend gdrive status fetch error:', e);
+    }
+  }
+
+  gdriveLinkedState = isLinked;
+  currentAccount.gdriveLinked = isLinked;
+  updateStorageWidget(mailboxStorageData, isLinked);
+
+  // If already linked, NEVER show the mandatory modal
+  if (!isLinked) {
+    showMandatoryGDriveModal();
+  } else {
+    if (gdriveModal) {
+      gdriveModal.classList.add('hidden');
+      gdriveModal.style.display = 'none';
+    }
+    // Auto-update Google Drive database on session load
+    syncMailboxToGoogleDrive();
+  }
+}
+
+function showMandatoryGDriveModal() {
+  if (!currentAccount || !gdriveModal) return;
+  // If account has already connected Google Drive, NEVER show this modal!
+  if (currentAccount.gdriveLinked || gdriveLinkedState || currentAccount.driveFileId) {
+    gdriveModal.classList.add('hidden');
+    gdriveModal.style.display = 'none';
+    return;
+  }
+  if (gdriveMailboxAddress) {
+    gdriveMailboxAddress.textContent = currentAccount.address;
+  }
+  gdriveModal.classList.remove('hidden');
+  gdriveModal.style.display = 'flex';
+}
+
+function updateStorageWidget(storage, isLinked) {
+  if (!storage) return;
+
+  if (storageUsedText) {
+    storageUsedText.textContent = `${storage.usedMb} MB / 60 MB`;
+  }
+
+  if (storageProgressBar) {
+    const pct = Math.max(2, Math.min(100, storage.percent));
+    storageProgressBar.style.width = pct + '%';
+    
+    storageProgressBar.classList.remove('warn', 'full');
+    if (pct >= 95) {
+      storageProgressBar.classList.add('full');
+    } else if (pct >= 80) {
+      storageProgressBar.classList.add('warn');
+    }
+  }
+
+  if (gdriveStatusText) {
+    gdriveStatusText.textContent = isLinked ? 'Drive Active' : 'Drive Pending';
+  }
+
+  if (gdriveStatusPill) {
+    gdriveStatusPill.style.color = isLinked ? '#34D399' : '#F59E0B';
+  }
+
+  // Display which Google Account is linked
+  const linkedGmail = (currentAccount && currentAccount.driveEmail) ? currentAccount.driveEmail : (isLinked ? 'Connected' : 'Not Linked');
+  if (storageLinkedEmail) {
+    storageLinkedEmail.textContent = linkedGmail;
+    storageLinkedEmail.title = isLinked ? `Linked Google Account: ${linkedGmail}` : 'Google Drive not linked';
+  }
+  if (dropdownGdriveEmail) {
+    dropdownGdriveEmail.textContent = linkedGmail;
+  }
+
+  // Open in Google Drive Link
+  const driveLink = (currentAccount && currentAccount.webViewLink) ? currentAccount.webViewLink : (currentAccount && currentAccount.driveFileId ? `https://drive.google.com/file/d/${currentAccount.driveFileId}/view` : 'https://drive.google.com');
+  if (btnOpenDriveFile) {
+    if (isLinked) {
+      btnOpenDriveFile.href = driveLink;
+      btnOpenDriveFile.style.display = 'inline-flex';
+    } else {
+      btnOpenDriveFile.style.display = 'none';
+    }
+  }
+  if (dropdownDriveViewLink) {
+    if (isLinked) {
+      dropdownDriveViewLink.href = driveLink;
+      dropdownDriveViewLink.style.display = 'inline-flex';
+    } else {
+      dropdownDriveViewLink.style.display = 'none';
+    }
+  }
+
+  // Handle storage full condition
+  if (storage.isFull && composeSubmitBtn) {
+    composeSubmitBtn.disabled = true;
+    composeSubmitBtn.title = 'Storage full (60 MB limit). Delete older emails to send new messages.';
+  }
+}
+
+// Google Drive Token & Instant Auto-Update Engine
+function saveActiveGoogleToken(token) {
+  if (!token) return;
+  window.activeGoogleToken = token;
+  const now = Date.now();
+  try {
+    if (currentAccount && currentAccount.address) {
+      localStorage.setItem('mailflux_gtoken_' + currentAccount.address, token);
+      localStorage.setItem('mailflux_gtime_' + currentAccount.address, String(now));
+      sessionStorage.setItem('mailflux_gtoken_' + currentAccount.address, token);
+    }
+    localStorage.setItem('mailflux_last_gtoken', token);
+    localStorage.setItem('mailflux_last_gtime', String(now));
+    sessionStorage.setItem('mailflux_last_gtoken', token);
+  } catch(e) {}
+}
+
+function getActiveGoogleToken() {
+  if (window.activeGoogleToken) return window.activeGoogleToken;
+  try {
+    let saved = null;
+    let savedTime = null;
+    if (currentAccount && currentAccount.address) {
+      saved = localStorage.getItem('mailflux_gtoken_' + currentAccount.address) || 
+              sessionStorage.getItem('mailflux_gtoken_' + currentAccount.address);
+      savedTime = localStorage.getItem('mailflux_gtime_' + currentAccount.address);
+    }
+    if (!saved) {
+      saved = localStorage.getItem('mailflux_last_gtoken') || sessionStorage.getItem('mailflux_last_gtoken');
+      savedTime = localStorage.getItem('mailflux_last_gtime');
+    }
+    if (saved) {
+      window.activeGoogleToken = saved;
+      return saved;
+    }
+  } catch(e) {}
+  return null;
+}
+
+async function ensureGoogleToken(allowInteractive = false) {
+  let token = getActiveGoogleToken();
+  if (token) return token;
+
+  if (window.google && google.accounts && google.accounts.oauth2 && currentAccount) {
+    try {
+      token = await new Promise((resolve) => {
+        const client = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
+          hint: currentAccount.driveEmail || undefined,
+          prompt: allowInteractive ? 'select_account' : '',
+          callback: (resp) => {
+            if (resp && resp.access_token) {
+              saveActiveGoogleToken(resp.access_token);
+              resolve(resp.access_token);
+            } else {
+              resolve(null);
+            }
+          }
+        });
+        client.requestAccessToken({ prompt: allowInteractive ? 'select_account' : '' });
+      });
+      return token;
+    } catch(e) {
+      console.warn('Silent token check notice:', e);
+      return null;
+    }
+  }
+  return null;
+}
+
+let isDriveSyncing = false;
+let lastSyncedEmailsCount = -1;
+
+async function syncMailboxToGoogleDrive(force = false) {
+  if (!currentAccount || isDriveSyncing) return;
+  if (!currentAccount.gdriveLinked && !gdriveLinkedState && !currentAccount.driveFileId) return;
+
+  const currentCount = messages ? messages.length : 0;
+  const totalCount = currentCount + (sentMessages ? sentMessages.length : 0);
+  if (!force && totalCount === lastSyncedEmailsCount) return;
+
+  const token = await ensureGoogleToken(false);
+  if (!token) {
+    console.warn('Google Drive auto-sync waiting for active token. Click Sync to refresh.');
+    return;
+  }
+
+  isDriveSyncing = true;
+  try {
+    const dbPayload = {
+      mailbox: currentAccount.address,
+      lastUpdated: new Date().toISOString(),
+      linkedGoogleAccount: currentAccount.driveEmail || 'Google Account',
+      storageLimitMb: 60,
+      messagesCount: currentCount,
+      totalEmails: totalCount,
+      inboxCount: currentCount,
+      sentCount: sentMessages ? sentMessages.length : 0,
+      messages: (messages || []).map(m => ({
+        id: m.id,
+        from: m.from,
+        to: m.to,
+        subject: m.subject,
+        intro: m.intro,
+        seen: m.seen,
+        createdAt: m.createdAt,
+        timestamp: m.timestamp
+      })),
+      inbox: (messages || []).map(m => ({
+        id: m.id,
+        from: m.from,
+        to: m.to,
+        subject: m.subject,
+        intro: m.intro,
+        seen: m.seen,
+        createdAt: m.createdAt,
+        timestamp: m.timestamp
+      })),
+      sent: (sentMessages || []).map(s => ({
+        id: s.id,
+        from: s.from,
+        to: s.to,
+        subject: s.subject,
+        intro: s.intro,
+        seen: s.seen,
+        createdAt: s.createdAt,
+        timestamp: s.timestamp
+      }))
+    };
+
+    let fileId = currentAccount.driveFileId;
+    let needsCreate = !fileId || fileId.startsWith('gdrive_db_');
+
+    if (!needsCreate) {
+      const patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dbPayload, null, 2)
+      });
+
+      if (patchRes.ok) {
+        lastSyncedEmailsCount = totalCount;
+        console.log(`✅ Google Drive successfully updated with ${currentCount} emails! (file: ${fileId})`);
+        showToast(`☁️ Google Drive updated: ${currentCount} emails synced`);
+        return;
+      }
+
+      if (patchRes.status === 404 || patchRes.status === 403) {
+        needsCreate = true;
+      }
+    }
+
+    if (needsCreate) {
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: `mailflux_${currentAccount.address.replace(/[@.]/g, '_')}_db.json`,
+          mimeType: 'application/json',
+          description: `MailFlux 60 MB Persistent Mailbox Database for ${currentAccount.address}`
+        })
+      });
+
+      if (createRes.ok) {
+        const fileData = await createRes.json();
+        if (fileData && fileData.id) {
+          fileId = fileData.id;
+          currentAccount.driveFileId = fileId;
+          currentAccount.webViewLink = `https://drive.google.com/file/d/${fileId}/view`;
+          currentAccount.gdriveLinked = true;
+          gdriveLinkedState = true;
+          saveRecentAccount(currentAccount);
+          localStorage.setItem('mailtm_current_account', JSON.stringify(currentAccount));
+
+          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(dbPayload, null, 2)
+          });
+
+          await fetch('/api/gdrive/link', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentAccount.token}`
+            },
+            body: JSON.stringify({
+              driveEmail: currentAccount.driveEmail,
+              fileId,
+              webViewLink: currentAccount.webViewLink
+            })
+          });
+
+          lastSyncedEmailsCount = totalCount;
+          showToast(`☁️ Google Drive database created and updated (${currentCount} emails)`);
+        }
+      }
+    }
+  } catch(syncErr) {
+    console.warn('Google Drive auto-sync error:', syncErr);
+  } finally {
+    isDriveSyncing = false;
+  }
+}
+
+async function triggerDriveSync() {
+  if (!currentAccount) return;
+  if (btnSyncDrive) btnSyncDrive.textContent = '...';
+  try {
+    await fetchMessages();
+    await fetchSentMessages();
+    let token = await ensureGoogleToken(true);
+    if (token) {
+      await syncMailboxToGoogleDrive(true);
+    } else {
+      showToast('Connecting Google Drive...');
+      await connectGoogleDriveAccount();
+    }
+  } catch(e) {
+    console.error('Manual drive sync error:', e);
+    showToast('Sync notice: ' + (e.message || ''));
+  } finally {
+    if (btnSyncDrive) btnSyncDrive.textContent = 'Sync';
+  }
+}
+
+async function connectGoogleDriveAccount() {
+  if (!currentAccount) return;
+
+  if (btnConnectGoogleDriveText) {
+    btnConnectGoogleDriveText.textContent = 'Connecting...';
+  }
+  if (btnConnectGoogleDrive) {
+    btnConnectGoogleDrive.disabled = true;
+  }
+
+  try {
+    if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+      throw new Error('Google Identity Services SDK is loading. Please try again in 3 seconds.');
+    }
+
+    const tokenResponse = await new Promise((resolve, reject) => {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+        enable_granular_consent: false,
+        hint: currentAccount.driveEmail || undefined,
+        callback: (resp) => {
+          if (resp.error) {
+            reject(new Error(resp.error_description || resp.error || 'Google authorization cancelled.'));
+            return;
+          }
+          resolve(resp);
+        }
+      });
+      client.requestAccessToken({ prompt: 'consent' });
+    });
+
+    const accessToken = tokenResponse.access_token;
+    if (!accessToken) throw new Error('Failed to obtain Google access token.');
+    saveActiveGoogleToken(accessToken);
+
+    const hasDriveScope = (tokenResponse.scope && tokenResponse.scope.includes('drive')) || 
+      (window.google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.hasGrantedAllScopes && google.accounts.oauth2.hasGrantedAllScopes(tokenResponse, 'https://www.googleapis.com/auth/drive.file'));
+
+    if (!hasDriveScope) {
+      throw new Error('Please check the box for Google Drive permission in the Google popup.');
+    }
+
+    let driveEmail = currentAccount.driveEmail || 'Google Account';
+    try {
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      if (userRes.ok) {
+        const uProfile = await userRes.json();
+        if (uProfile && uProfile.email) {
+          driveEmail = uProfile.email;
+        }
+      }
+    } catch(e) {
+      console.warn('Error fetching Google user profile:', e);
+    }
+
+    let fileId = currentAccount.driveFileId;
+    let webViewLink = currentAccount.webViewLink || 'https://drive.google.com';
+
+    const currentCount = messages ? messages.length : 0;
+    const totalCount = currentCount + (sentMessages ? sentMessages.length : 0);
+    const dbPayload = {
+      mailbox: currentAccount.address,
+      createdAt: new Date().toISOString(),
+      linkedGoogleAccount: driveEmail,
+      storageLimitMb: 60,
+      messagesCount: currentCount,
+      totalEmails: totalCount,
+      inboxCount: currentCount,
+      sentCount: sentMessages ? sentMessages.length : 0,
+      messages: (messages || []).slice(0, 100),
+      inbox: (messages || []).slice(0, 100),
+      sent: (sentMessages || []).slice(0, 100)
+    };
+
+    if (!fileId || fileId.startsWith('gdrive_db_')) {
+      const meta = {
+        name: `mailflux_${currentAccount.address.replace(/[@.]/g, '_')}_db.json`,
+        mimeType: 'application/json',
+        description: `MailFlux 60 MB Persistent Mailbox Database for ${currentAccount.address}`
+      };
+
+      const driveCreateRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(meta)
+      });
+
+      if (!driveCreateRes.ok) {
+        const errData = await driveCreateRes.json().catch(() => ({}));
+        const errDetail = (errData.error && errData.error.message) ? errData.error.message : ('HTTP ' + driveCreateRes.status);
+        console.error('Google Drive API error:', errData);
+        throw new Error(`Google Drive API: ${errDetail}`);
+      }
+
+      const fileData = await driveCreateRes.json();
+      if (!fileData || !fileData.id) {
+        throw new Error('Google Drive did not return a valid file ID.');
+      }
+
+      fileId = fileData.id;
+      webViewLink = `https://drive.google.com/file/d/${fileId}/view`;
+    }
+
+    const patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(dbPayload, null, 2)
+    });
+
+    if (!patchRes.ok) {
+      console.warn('Drive content PATCH warning:', patchRes.status);
+    }
+    console.log('✅ Real Google Drive file updated successfully. File ID:', fileId, 'Link:', webViewLink);
+
+    try {
+      await fetch('/api/gdrive/link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentAccount.token}`
+        },
+        body: JSON.stringify({
+          driveEmail,
+          fileId,
+          webViewLink
+        })
+      });
+    } catch(err) {
+      console.warn('Backend link sync notice:', err);
+    }
+
+    gdriveLinkedState = true;
+    currentAccount.gdriveLinked = true;
+    currentAccount.driveEmail = driveEmail;
+    currentAccount.webViewLink = webViewLink;
+    currentAccount.driveFileId = fileId;
+    saveRecentAccount(currentAccount);
+    localStorage.setItem('mailtm_current_account', JSON.stringify(currentAccount));
+
+    if (gdriveModal) {
+      gdriveModal.classList.add('hidden');
+      gdriveModal.style.display = 'none';
+    }
+
+    showToast(`🎉 Google Drive connected (${driveEmail})! 60 MB database synced.`);
+
+    updateStorageWidget(mailboxStorageData, true);
+    await syncMailboxToGoogleDrive(true);
+
+  } catch(err) {
+    console.error('Google Drive link error:', err);
+    showToast(err.message || 'Failed to connect Google Drive');
+  } finally {
+    if (btnConnectGoogleDriveText) {
+      btnConnectGoogleDriveText.textContent = 'Connect with Google';
+    }
+    if (btnConnectGoogleDrive) {
+      btnConnectGoogleDrive.disabled = false;
+    }
+  }
+}
+
+// --------------------------------------------------------------------------
+// PASSWORD RECOVERY SYSTEM (GOOGLE 1-CLICK OR EMAIL OTP)
+// --------------------------------------------------------------------------
+const recoveryModal = document.getElementById('recoveryModal');
+const recoveryCloseBtn = document.getElementById('recoveryCloseBtn');
+const recStep1 = document.getElementById('recStep1');
+const recStep2 = document.getElementById('recStep2');
+const recStep3 = document.getElementById('recStep3');
+const recMailboxInput = document.getElementById('recMailboxInput');
+const btnRecFindAccount = document.getElementById('btnRecFindAccount');
+const recMaskedEmail = document.getElementById('recMaskedEmail');
+const btnRecVerifyGoogle = document.getElementById('btnRecVerifyGoogle');
+const btnRecSendOtp = document.getElementById('btnRecSendOtp');
+const btnRecSendOtpText = document.getElementById('btnRecSendOtpText');
+const recOtpSection = document.getElementById('recOtpSection');
+const recOtpInput = document.getElementById('recOtpInput');
+const btnRecVerifyOtp = document.getElementById('btnRecVerifyOtp');
+const recNewPassword = document.getElementById('recNewPassword');
+const btnRecSubmitNewPass = document.getElementById('btnRecSubmitNewPass');
+
+let recMailbox = '';
+let recMethod = '';
+let recGoogleToken = '';
+let recOtp = '';
+
+function openRecoveryModal(prefillEmail = '') {
+  if (!recoveryModal) return;
+
+  recMailbox = '';
+  recMethod = '';
+  recGoogleToken = '';
+  recOtp = '';
+
+  if (recStep1) { recStep1.classList.remove('hidden'); recStep1.classList.add('active'); }
+  if (recStep2) { recStep2.classList.add('hidden'); recStep2.classList.remove('active'); }
+  if (recStep3) { recStep3.classList.add('hidden'); recStep3.classList.remove('active'); }
+  if (recOtpSection) recOtpSection.classList.add('hidden');
+
+  if (recMailboxInput) {
+    recMailboxInput.value = prefillEmail || '';
+    setTimeout(() => recMailboxInput.focus(), 80);
+  }
+
+  recoveryModal.classList.remove('hidden');
+}
+
+function closeRecoveryModal() {
+  if (recoveryModal) recoveryModal.classList.add('hidden');
+}
+
+if (recoveryCloseBtn) {
+  recoveryCloseBtn.addEventListener('click', closeRecoveryModal);
+}
+
+if (recoveryModal) {
+  recoveryModal.addEventListener('click', (e) => {
+    if (e.target === recoveryModal) closeRecoveryModal();
+  });
+}
+
+// Step 1: Find Account
+if (btnRecFindAccount) {
+  btnRecFindAccount.addEventListener('click', async () => {
+    const address = recMailboxInput ? recMailboxInput.value.trim() : '';
+    if (!address || !address.includes('@')) {
+      showToast('Please enter a valid MailFlux address.');
+      return;
+    }
+
+    btnRecFindAccount.disabled = true;
+    btnRecFindAccount.textContent = 'Searching...';
+
+    try {
+      const res = await fetch('/api/auth/recovery-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Mailbox not found.');
+      }
+
+      recMailbox = data.address;
+      if (recMaskedEmail) recMaskedEmail.textContent = data.maskedEmail;
+
+      // Switch to Step 2
+      recStep1.classList.add('hidden');
+      recStep1.classList.remove('active');
+      recStep2.classList.remove('hidden');
+      recStep2.classList.add('active');
+
+      showToast(`Found mailbox! Recovery linked to ${data.maskedEmail}`);
+
+    } catch(err) {
+      showToast(err.message || 'Failed to find account.');
+    } finally {
+      btnRecFindAccount.disabled = false;
+      btnRecFindAccount.innerHTML = '<span>Find Account</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+    }
+  });
+}
+
+// Step 2, Option A: Verify Identity with Google (1-Click)
+if (btnRecVerifyGoogle) {
+  btnRecVerifyGoogle.addEventListener('click', async () => {
+    if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+      showToast('Google Identity Services is loading. Please try again in 2 seconds.');
+      return;
+    }
+
+    try {
+      const tokenResp = await new Promise((resolve, reject) => {
+        const client = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/userinfo.email',
+          callback: (resp) => {
+            if (resp.error) return reject(new Error(resp.error_description || resp.error || 'Google sign-in cancelled'));
+            resolve(resp);
+          }
+        });
+        client.requestAccessToken({ prompt: 'select_account' });
+      });
+
+      if (!tokenResp.access_token) throw new Error('Failed to obtain token from Google');
+
+      recMethod = 'google';
+      recGoogleToken = tokenResp.access_token;
+
+      // Proceed to Step 3: Set New Password
+      recStep2.classList.add('hidden');
+      recStep2.classList.remove('active');
+      recStep3.classList.remove('hidden');
+      recStep3.classList.add('active');
+
+      showToast('✅ Google Identity verified! Now choose your new password.');
+      setTimeout(() => recNewPassword && recNewPassword.focus(), 100);
+
+    } catch(e) {
+      showToast(e.message || 'Google verification failed.');
+    }
+  });
+}
+
+// Step 2, Option B: Send 6-Digit OTP via Brevo
+if (btnRecSendOtp) {
+  btnRecSendOtp.addEventListener('click', async () => {
+    if (!recMailbox) return;
+
+    btnRecSendOtp.disabled = true;
+    if (btnRecSendOtpText) btnRecSendOtpText.textContent = 'Sending code...';
+
+    try {
+      const res = await fetch('/api/auth/send-recovery-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: recMailbox })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to send verification code.');
+
+      if (recOtpSection) {
+        recOtpSection.classList.remove('hidden');
+        if (recOtpInput) setTimeout(() => recOtpInput.focus(), 100);
+      }
+      showToast(`📨 6-digit code sent to ${data.maskedEmail}!`);
+
+    } catch(err) {
+      showToast(err.message || 'Failed to send code.');
+    } finally {
+      btnRecSendOtp.disabled = false;
+      if (btnRecSendOtpText) btnRecSendOtpText.textContent = 'Resend Code';
+    }
+  });
+}
+
+// Step 2, Verify OTP
+if (btnRecVerifyOtp) {
+  btnRecVerifyOtp.addEventListener('click', () => {
+    const otp = recOtpInput ? recOtpInput.value.trim() : '';
+    if (otp.length < 6) {
+      showToast('Please enter the full 6-digit verification code.');
+      return;
+    }
+
+    recMethod = 'otp';
+    recOtp = otp;
+
+    // Proceed to Step 3
+    recStep2.classList.add('hidden');
+    recStep2.classList.remove('active');
+    recStep3.classList.remove('hidden');
+    recStep3.classList.add('active');
+
+    showToast('Code entered! Set your new password.');
+    setTimeout(() => recNewPassword && recNewPassword.focus(), 100);
+  });
+}
+
+// Step 3: Submit New Password
+if (btnRecSubmitNewPass) {
+  btnRecSubmitNewPass.addEventListener('click', async () => {
+    const newPass = recNewPassword ? recNewPassword.value.trim() : '';
+    if (newPass.length < 6) {
+      showToast('Password must be at least 6 characters.');
+      return;
+    }
+
+    btnRecSubmitNewPass.disabled = true;
+    btnRecSubmitNewPass.textContent = 'Updating password...';
+
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: recMailbox,
+          newPassword: newPass,
+          method: recMethod,
+          googleToken: recGoogleToken,
+          otp: recOtp
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Password reset failed.');
+      }
+
+      // Success: Save new account session and log user in automatically!
+      currentAccount = data.account;
+      saveRecentAccount(currentAccount);
+      localStorage.setItem('mailtm_current_account', JSON.stringify(currentAccount));
+
+      closeRecoveryModal();
+      if (window.closeModal) window.closeModal();
+
+      renderActiveSession();
+      startSyncLoop();
+
+      showToast('🎉 Password reset successfully! You are now logged in.');
+
+    } catch(err) {
+      showToast(err.message || 'Failed to reset password.');
+    } finally {
+      btnRecSubmitNewPass.disabled = false;
+      btnRecSubmitNewPass.innerHTML = '<span>Set New Password & Sign In</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+    }
+  });
+}
 

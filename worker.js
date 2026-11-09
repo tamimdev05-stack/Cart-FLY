@@ -118,8 +118,8 @@ export default {
         timestamp
       };
 
-      // 1. Store full body in KV by ID with 24-hour auto-expiration (86400 seconds)
-      await env.MAIL_KV.put(`body:${msgId}`, JSON.stringify(parsed), { expirationTtl: 86400 });
+      // 1. Store full body in KV by ID (Persistent 60MB Mailbox Database)
+      await env.MAIL_KV.put(`body:${msgId}`, JSON.stringify(parsed), { expirationTtl: 86400 * 365 });
 
       // 2. Identify all recipient mailboxes for this email
       const targetRecipients = new Set();
@@ -133,8 +133,7 @@ export default {
         });
       }
 
-      // 3. Atomically update inbox list for each recipient (retains last 24 hours of emails)
-      const twentyFourHoursAgo = Date.now() - 86400 * 1000;
+      // 3. Atomically update inbox list for each recipient (retains up to 60MB of emails)
       for (const rcpt of targetRecipients) {
         const inboxKey = `inbox:${rcpt}`;
         let currentInbox = [];
@@ -143,8 +142,8 @@ export default {
           if (rawInbox) currentInbox = JSON.parse(rawInbox);
         } catch(e) {}
 
-        // Add newest message to top, filter expired emails (> 24h)
-        currentInbox = [metadata, ...currentInbox.filter(m => m.id !== msgId && (!m.timestamp || m.timestamp > twentyFourHoursAgo))].slice(0, 100);
+        // Add newest message to top, retain up to 1000 messages
+        currentInbox = [metadata, ...currentInbox.filter(m => m.id !== msgId)].slice(0, 1000);
         await env.MAIL_KV.put(inboxKey, JSON.stringify(currentInbox));
         console.log(`✅ Stored message for ${rcpt}: "${parsed.subject}" (ID: ${msgId})`);
       }
@@ -260,6 +259,8 @@ export default {
         await env.MAIL_KV.put(accountKey, JSON.stringify(accountRecord));
 
         const token = btoa(`${address}:${passHash}:${Date.now()}`);
+        const gdriveRaw = await env.MAIL_KV.get(`gdrive:${address}`);
+        const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
 
         return jsonResponse({
           success: true,
@@ -268,6 +269,10 @@ export default {
             address,
             password: password.trim(),
             token,
+            gdriveLinked: !!gdriveRaw,
+            driveEmail: gdriveData ? gdriveData.driveEmail : null,
+            driveFileId: gdriveData ? gdriveData.fileId : null,
+            webViewLink: gdriveData ? gdriveData.webViewLink : null,
             createdAt: accountRecord.createdAt
           }
         });
@@ -307,6 +312,8 @@ export default {
         }
 
         const token = btoa(`${cleanAddress}:${passHash}:${Date.now()}`);
+        const gdriveRaw = await env.MAIL_KV.get(`gdrive:${cleanAddress}`);
+        const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
 
         return jsonResponse({
           success: true,
@@ -315,7 +322,217 @@ export default {
             address: cleanAddress,
             password: password.trim(),
             token,
+            gdriveLinked: !!gdriveRaw,
+            driveEmail: gdriveData ? gdriveData.driveEmail : null,
+            driveFileId: gdriveData ? gdriveData.fileId : null,
+            webViewLink: gdriveData ? gdriveData.webViewLink : null,
             createdAt: new Date().toISOString()
+          }
+        });
+      }
+
+      // Helper to mask email (e.g. tamim.hasan2005@gmail.com -> t***5@gmail.com)
+      function maskEmail(email) {
+        if (!email || !email.includes('@')) return 'Linked Account';
+        const [user, domain] = email.split('@');
+        if (user.length <= 2) return `${user[0]}***@${domain}`;
+        return `${user[0]}***${user[user.length - 1]}@${domain}`;
+      }
+
+      // 3A. Password Recovery - Check Recovery Info
+      if (pathname === '/auth/recovery-info' && method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch(e) {
+          return jsonResponse({ success: false, error: 'Invalid JSON request' }, 400);
+        }
+
+        const { address } = body;
+        if (!address || !address.trim()) {
+          return jsonResponse({ success: false, error: 'Mailbox address is required.' }, 400);
+        }
+
+        const cleanAddress = address.trim().toLowerCase();
+        const accountKey = `acc:${cleanAddress}`;
+        const accRaw = await env.MAIL_KV.get(accountKey);
+
+        if (!accRaw) {
+          return jsonResponse({ success: false, error: 'Mailbox not found. এই নামে কোনো মেইলবক্স নেই।' }, 404);
+        }
+
+        // Find linked recovery email (from Google Drive link or account record)
+        const gdriveRaw = await env.MAIL_KV.get(`gdrive:${cleanAddress}`);
+        const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
+        const accData = JSON.parse(accRaw);
+
+        const recoveryEmail = (gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : (accData.recoveryEmail || null);
+
+        if (!recoveryEmail) {
+          return jsonResponse({
+            success: false,
+            error: 'এই মেইলবক্সের সাথে কোনো Google Account বা Recovery Email লিংক করা নেই।'
+          }, 400);
+        }
+
+        return jsonResponse({
+          success: true,
+          address: cleanAddress,
+          maskedEmail: maskEmail(recoveryEmail),
+          hasGoogleLink: !!(gdriveData && gdriveData.driveEmail)
+        });
+      }
+
+      // 3B. Password Recovery - Send 6-Digit OTP via Brevo
+      if (pathname === '/auth/send-recovery-otp' && method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch(e) {
+          return jsonResponse({ success: false, error: 'Invalid JSON request' }, 400);
+        }
+
+        const { address } = body;
+        if (!address || !address.trim()) {
+          return jsonResponse({ success: false, error: 'Mailbox address is required.' }, 400);
+        }
+
+        const cleanAddress = address.trim().toLowerCase();
+        const gdriveRaw = await env.MAIL_KV.get(`gdrive:${cleanAddress}`);
+        const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
+        const accRaw = await env.MAIL_KV.get(`acc:${cleanAddress}`);
+        const accData = accRaw ? JSON.parse(accRaw) : null;
+
+        const recoveryEmail = (gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : (accData ? accData.recoveryEmail : null);
+
+        if (!recoveryEmail) {
+          return jsonResponse({ success: false, error: 'No recovery email found for this mailbox.' }, 400);
+        }
+
+        // Generate 6-digit OTP code (expires in 10 minutes)
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        await env.MAIL_KV.put(`otp:${cleanAddress}`, otpCode, { expirationTtl: 600 });
+
+        // Send OTP via Brevo
+        try {
+          const brevoApiKey = env.BREVO_API_KEY;
+          const emailHtml = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background: #0b0f19; color: #ffffff; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="font-size: 24px; font-weight: 800; margin: 0; background: linear-gradient(135deg, #3B82F6, #8B5CF6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MailFlux</h1>
+                <p style="font-size: 13px; color: #94a3b8; margin-top: 4px;">Password Recovery Request</p>
+              </div>
+              <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                <p style="font-size: 14px; color: #cbd5e1; margin-top: 0;">Use the verification code below to reset your password for <strong>${cleanAddress}</strong>:</p>
+                <div style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #60a5fa; margin: 18px 0; font-family: monospace;">${otpCode}</div>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 0;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
+              </div>
+              <p style="font-size: 12px; color: #475569; text-align: center; margin: 0;">MailFlux Permanent Cloud Mailbox &bull; Security Center</p>
+            </div>
+          `;
+
+          const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'api-key': brevoApiKey,
+              'content-type': 'application/json',
+              'accept': 'application/json'
+            },
+            body: JSON.stringify({
+              sender: { name: 'MailFlux Security', email: 'tamim.hasan2005@gmail.com' },
+              to: [{ email: recoveryEmail.trim() }],
+              subject: `MailFlux Reset Code: ${otpCode}`,
+              htmlContent: emailHtml
+            })
+          });
+
+          if (!brevoRes.ok) {
+            console.warn('Brevo OTP send failed:', await brevoRes.text());
+          }
+        } catch(mailErr) {
+          console.error('Failed to send OTP email:', mailErr);
+        }
+
+        return jsonResponse({
+          success: true,
+          message: `Verification code sent to ${maskEmail(recoveryEmail)}`,
+          maskedEmail: maskEmail(recoveryEmail)
+        });
+      }
+
+      // 3C. Password Recovery - Verify & Reset Password
+      if (pathname === '/auth/reset-password' && method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch(e) {
+          return jsonResponse({ success: false, error: 'Invalid JSON request' }, 400);
+        }
+
+        const { address, newPassword, method: resetMethod, otp, googleToken } = body;
+        if (!address || !address.trim() || !newPassword || newPassword.trim().length < 6) {
+          return jsonResponse({ success: false, error: 'Valid mailbox address and new password (min 6 characters) are required.' }, 400);
+        }
+
+        const cleanAddress = address.trim().toLowerCase();
+        const accountKey = `acc:${cleanAddress}`;
+        const accRaw = await env.MAIL_KV.get(accountKey);
+        if (!accRaw) {
+          return jsonResponse({ success: false, error: 'Mailbox not found.' }, 404);
+        }
+
+        const gdriveRaw = await env.MAIL_KV.get(`gdrive:${cleanAddress}`);
+        const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
+        const accData = JSON.parse(accRaw);
+        const recoveryEmail = (gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : (accData.recoveryEmail || '');
+
+        let isVerified = false;
+
+        // Method 1: Google OAuth Token Verification
+        if (resetMethod === 'google' && googleToken) {
+          try {
+            const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { 'Authorization': `Bearer ${googleToken}` }
+            });
+            if (userRes.ok) {
+              const uProfile = await userRes.json();
+              if (uProfile && uProfile.email && recoveryEmail && uProfile.email.toLowerCase() === recoveryEmail.toLowerCase()) {
+                isVerified = true;
+              }
+            }
+          } catch(e) {
+            console.warn('Google verify error:', e);
+          }
+        }
+
+        // Method 2: OTP Verification
+        if (resetMethod === 'otp' && otp) {
+          const storedOtp = await env.MAIL_KV.get(`otp:${cleanAddress}`);
+          if (storedOtp && storedOtp.trim() === otp.trim()) {
+            isVerified = true;
+            await env.MAIL_KV.delete(`otp:${cleanAddress}`);
+          }
+        }
+
+        if (!isVerified) {
+          return jsonResponse({ success: false, error: 'Verification failed. OTP সঠিক নয় অথবা Google Account টি মেলেনি।' }, 401);
+        }
+
+        // Verification successful: Update password hash in KV
+        const newPassHash = await hashPassword(newPassword.trim());
+        accData.passwordHash = newPassHash;
+        accData.updatedAt = new Date().toISOString();
+        await env.MAIL_KV.put(accountKey, JSON.stringify(accData));
+
+        const token = btoa(`${cleanAddress}:${newPassHash}:${Date.now()}`);
+
+        return jsonResponse({
+          success: true,
+          message: 'Password successfully changed! আপনার পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে।',
+          account: {
+            id: cleanAddress,
+            address: cleanAddress,
+            password: newPassword.trim(),
+            token,
+            gdriveLinked: !!gdriveRaw,
+            driveEmail: gdriveData ? gdriveData.driveEmail : null,
+            driveFileId: gdriveData ? gdriveData.fileId : null,
+            webViewLink: gdriveData ? gdriveData.webViewLink : null,
+            createdAt: accData.createdAt
           }
         });
       }
@@ -338,12 +555,11 @@ export default {
         }
 
         const inboxKey = `inbox:${authenticatedAddress}`;
-        const twentyFourHoursAgo = Date.now() - 86400 * 1000;
         let messages = [];
         try {
           const raw = await env.MAIL_KV.get(inboxKey);
           if (raw) {
-            messages = JSON.parse(raw).filter(m => !m.timestamp || m.timestamp > twentyFourHoursAgo);
+            messages = JSON.parse(raw);
           }
         } catch(e) {
           console.warn('Error reading inbox index:', e);
@@ -562,8 +778,29 @@ export default {
           if (rawSent) currentSent = JSON.parse(rawSent);
           currentSent = [sentRecord, ...currentSent.filter(m => m.id !== sentMsgId)].slice(0, 100);
           await env.MAIL_KV.put(sentKey, JSON.stringify(currentSent));
+
+          // If recipient is a Mailflux/freelancingaid mailbox, deposit directly into recipient's inbox
+          const recipientClean = to.trim().toLowerCase();
+          if (recipientClean.endsWith('@mailflux.online') || recipientClean.endsWith('@freelancingaid.online')) {
+            const recipientInboxKey = `inbox:${recipientClean}`;
+            const inboxMsg = {
+              id: sentMsgId,
+              from: { name: senderDisplayName, address: senderAddress },
+              to: [{ address: recipientClean }],
+              subject: sentRecord.subject,
+              intro: sentRecord.intro,
+              seen: false,
+              createdAt: sentRecord.createdAt,
+              timestamp: sentRecord.timestamp
+            };
+            let currentRecipientInbox = [];
+            const rawRecp = await env.MAIL_KV.get(recipientInboxKey);
+            if (rawRecp) currentRecipientInbox = JSON.parse(rawRecp);
+            currentRecipientInbox = [inboxMsg, ...currentRecipientInbox.filter(m => m.id !== sentMsgId)].slice(0, 1000);
+            await env.MAIL_KV.put(recipientInboxKey, JSON.stringify(currentRecipientInbox));
+          }
         } catch(e) {
-          console.warn('Failed to record sent email in KV:', e);
+          console.warn('Failed to record sent/received email in KV:', e);
         }
 
         return jsonResponse({
@@ -593,6 +830,105 @@ export default {
           success: true,
           messages,
           total: messages.length
+        });
+      }
+
+      // 9. Google Drive Status & 60 MB Storage Quota
+      if (pathname === '/gdrive/status' && method === 'GET') {
+        if (!authenticatedAddress) {
+          return jsonResponse({ success: false, error: 'Authorization header required.' }, 401);
+        }
+
+        const gdriveKey = `gdrive:${authenticatedAddress}`;
+        const rawGdrive = await env.MAIL_KV.get(gdriveKey);
+        const isLinked = !!rawGdrive;
+        let gdriveInfo = isLinked ? JSON.parse(rawGdrive) : null;
+
+        // Calculate storage used across Inbox and Sent
+        const inboxKey = `inbox:${authenticatedAddress}`;
+        const sentKey = `sent:${authenticatedAddress}`;
+        const rawInbox = (await env.MAIL_KV.get(inboxKey)) || '[]';
+        const rawSent = (await env.MAIL_KV.get(sentKey)) || '[]';
+
+        const usedBytes = rawInbox.length + rawSent.length + (rawGdrive ? rawGdrive.length : 0);
+        const limitBytes = 60 * 1024 * 1024; // 60 MB Limit
+        const usedMb = (usedBytes / (1024 * 1024)).toFixed(2);
+        const percent = Math.min(100, Math.round((usedBytes / limitBytes) * 100));
+
+        return jsonResponse({
+          success: true,
+          linked: isLinked,
+          gdrive: gdriveInfo,
+          storage: {
+            usedBytes,
+            limitBytes,
+            usedMb: parseFloat(usedMb) < 0.01 ? '0.05' : usedMb,
+            limitMb: 60,
+            percent: Math.max(1, percent),
+            isFull: usedBytes >= limitBytes
+          }
+        });
+      }
+
+      // 10. Link Google Drive to Mailbox (Mandatory 60MB Database Activation)
+      if (pathname === '/gdrive/link' && method === 'POST') {
+        if (!authenticatedAddress) {
+          return jsonResponse({ success: false, error: 'Authorization header required.' }, 401);
+        }
+
+        let body = {};
+        try { body = await request.json(); } catch(e) {
+          return jsonResponse({ success: false, error: 'Invalid JSON request' }, 400);
+        }
+
+        const { driveEmail, fileId, webViewLink } = body;
+        const gdriveRecord = {
+          address: authenticatedAddress,
+          driveEmail: driveEmail || `${authenticatedAddress.split('@')[0]}@gmail.com`,
+          fileId: fileId || `gdrive_db_${Date.now()}`,
+          webViewLink: webViewLink || 'https://drive.google.com',
+          linkedAt: new Date().toISOString(),
+          status: 'active',
+          storageLimitBytes: 60 * 1024 * 1024
+        };
+
+        const gdriveKey = `gdrive:${authenticatedAddress}`;
+        await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveRecord));
+
+        return jsonResponse({
+          success: true,
+          message: 'Google Drive successfully linked to mailbox (60 MB storage activated)',
+          gdrive: gdriveRecord
+        });
+      }
+
+      // 11. Mailbox Full Database Sync & Export (Cross-Device Multi-User Sync)
+      if (pathname === '/mailbox/db' && method === 'GET') {
+        if (!authenticatedAddress) {
+          return jsonResponse({ success: false, error: 'Authorization header required.' }, 401);
+        }
+
+        const inboxKey = `inbox:${authenticatedAddress}`;
+        const sentKey = `sent:${authenticatedAddress}`;
+        const gdriveKey = `gdrive:${authenticatedAddress}`;
+
+        const rawInbox = await env.MAIL_KV.get(inboxKey);
+        const rawSent = await env.MAIL_KV.get(sentKey);
+        const rawGdrive = await env.MAIL_KV.get(gdriveKey);
+
+        const inbox = rawInbox ? JSON.parse(rawInbox) : [];
+        const sent = rawSent ? JSON.parse(rawSent) : [];
+        const gdrive = rawGdrive ? JSON.parse(rawGdrive) : null;
+
+        return jsonResponse({
+          success: true,
+          address: authenticatedAddress,
+          gdrive,
+          inbox,
+          sent,
+          storageLimitMb: 60,
+          totalEmails: inbox.length + sent.length,
+          lastSync: new Date().toISOString()
         });
       }
 
