@@ -214,7 +214,7 @@ export default {
           return jsonResponse({ success: false, error: 'Invalid JSON request body' }, 400);
         }
 
-        const { username, domain, password } = body;
+        const { username, domain, password, recoveryEmail } = body;
         if (!username || typeof username !== 'string' || !username.trim()) {
           return jsonResponse({ success: false, error: 'Username is required. Random email creation is disabled.' }, 400);
         }
@@ -238,6 +238,11 @@ export default {
           chosenDomain = ALLOWED_DOMAINS[0];
         }
 
+        let cleanRecovery = null;
+        if (recoveryEmail && typeof recoveryEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
+          cleanRecovery = recoveryEmail.trim().toLowerCase();
+        }
+
         const address = `${cleanUsername}@${chosenDomain}`.toLowerCase();
         const accountKey = `acc:${address}`;
         const existing = await env.MAIL_KV.get(accountKey);
@@ -254,6 +259,7 @@ export default {
           id: address,
           address,
           passwordHash: passHash,
+          recoveryEmail: cleanRecovery || (existing ? JSON.parse(existing).recoveryEmail : null),
           createdAt: existing ? JSON.parse(existing).createdAt : new Date().toISOString()
         };
         await env.MAIL_KV.put(accountKey, JSON.stringify(accountRecord));
@@ -269,6 +275,7 @@ export default {
             address,
             password: password.trim(),
             token,
+            recoveryEmail: accountRecord.recoveryEmail,
             gdriveLinked: !!gdriveRaw,
             driveEmail: gdriveData ? gdriveData.driveEmail : null,
             driveFileId: gdriveData ? gdriveData.fileId : null,
@@ -314,6 +321,7 @@ export default {
         const token = btoa(`${cleanAddress}:${passHash}:${Date.now()}`);
         const gdriveRaw = await env.MAIL_KV.get(`gdrive:${cleanAddress}`);
         const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
+        const currentAcc = existing ? JSON.parse(existing) : null;
 
         return jsonResponse({
           success: true,
@@ -322,11 +330,12 @@ export default {
             address: cleanAddress,
             password: password.trim(),
             token,
+            recoveryEmail: currentAcc ? (currentAcc.recoveryEmail || null) : null,
             gdriveLinked: !!gdriveRaw,
             driveEmail: gdriveData ? gdriveData.driveEmail : null,
             driveFileId: gdriveData ? gdriveData.fileId : null,
             webViewLink: gdriveData ? gdriveData.webViewLink : null,
-            createdAt: new Date().toISOString()
+            createdAt: currentAcc ? currentAcc.createdAt : new Date().toISOString()
           }
         });
       }
@@ -364,7 +373,7 @@ export default {
         const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
         const accData = JSON.parse(accRaw);
 
-        const recoveryEmail = (gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : (accData.recoveryEmail || null);
+        const recoveryEmail = (accData && accData.recoveryEmail) ? accData.recoveryEmail : ((gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : null);
 
         if (!recoveryEmail) {
           return jsonResponse({
@@ -399,7 +408,7 @@ export default {
         const accRaw = await env.MAIL_KV.get(`acc:${cleanAddress}`);
         const accData = accRaw ? JSON.parse(accRaw) : null;
 
-        const recoveryEmail = (gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : (accData ? accData.recoveryEmail : null);
+        const recoveryEmail = (accData && accData.recoveryEmail) ? accData.recoveryEmail : ((gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : null);
 
         if (!recoveryEmail) {
           return jsonResponse({ success: false, error: 'No recovery email found for this mailbox.' }, 400);
@@ -478,7 +487,7 @@ export default {
         const gdriveRaw = await env.MAIL_KV.get(`gdrive:${cleanAddress}`);
         const gdriveData = gdriveRaw ? JSON.parse(gdriveRaw) : null;
         const accData = JSON.parse(accRaw);
-        const recoveryEmail = (gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : (accData.recoveryEmail || '');
+        const recoveryEmail = (accData && accData.recoveryEmail) ? accData.recoveryEmail : ((gdriveData && gdriveData.driveEmail) ? gdriveData.driveEmail : '');
 
         let isVerified = false;
 
@@ -490,8 +499,12 @@ export default {
             });
             if (userRes.ok) {
               const uProfile = await userRes.json();
-              if (uProfile && uProfile.email && recoveryEmail && uProfile.email.toLowerCase() === recoveryEmail.toLowerCase()) {
-                isVerified = true;
+              if (uProfile && uProfile.email) {
+                const googleEmail = uProfile.email.toLowerCase();
+                if ((recoveryEmail && googleEmail === recoveryEmail.toLowerCase()) ||
+                    (gdriveData && gdriveData.driveEmail && googleEmail === gdriveData.driveEmail.toLowerCase())) {
+                  isVerified = true;
+                }
               }
             }
           } catch(e) {
@@ -852,7 +865,7 @@ export default {
 
         const usedBytes = rawInbox.length + rawSent.length + (rawGdrive ? rawGdrive.length : 0);
         const limitBytes = 60 * 1024 * 1024; // 60 MB Limit
-        const usedMb = (usedBytes / (1024 * 1024)).toFixed(2);
+        const usedMb = (usedBytes / (1024 * 1024)).toFixed(3);
         const percent = Math.min(100, Math.round((usedBytes / limitBytes) * 100));
 
         return jsonResponse({
@@ -862,7 +875,7 @@ export default {
           storage: {
             usedBytes,
             limitBytes,
-            usedMb: parseFloat(usedMb) < 0.01 ? '0.05' : usedMb,
+            usedMb,
             limitMb: 60,
             percent: Math.max(1, percent),
             isFull: usedBytes >= limitBytes
@@ -899,6 +912,41 @@ export default {
           success: true,
           message: 'Google Drive successfully linked to mailbox (60 MB storage activated)',
           gdrive: gdriveRecord
+        });
+      }
+
+      // 10B. Set / Update Recovery Email (Any custom email)
+      if (pathname === '/account/recovery-email' && (method === 'POST' || method === 'PATCH')) {
+        if (!authenticatedAddress) {
+          return jsonResponse({ success: false, error: 'Authorization header required. Please sign in.' }, 401);
+        }
+
+        let body = {};
+        try { body = await request.json(); } catch(e) {
+          return jsonResponse({ success: false, error: 'Invalid JSON request' }, 400);
+        }
+
+        const { recoveryEmail } = body;
+        if (!recoveryEmail || typeof recoveryEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
+          return jsonResponse({ success: false, error: 'Please enter a valid email address (e.g. you@gmail.com).' }, 400);
+        }
+
+        const cleanRecovery = recoveryEmail.trim().toLowerCase();
+        const accountKey = `acc:${authenticatedAddress}`;
+        const accRaw = await env.MAIL_KV.get(accountKey);
+        if (!accRaw) {
+          return jsonResponse({ success: false, error: 'Account not found.' }, 404);
+        }
+
+        const accData = JSON.parse(accRaw);
+        accData.recoveryEmail = cleanRecovery;
+        accData.updatedAt = new Date().toISOString();
+        await env.MAIL_KV.put(accountKey, JSON.stringify(accData));
+
+        return jsonResponse({
+          success: true,
+          message: 'Recovery email updated successfully!',
+          recoveryEmail: cleanRecovery
         });
       }
 

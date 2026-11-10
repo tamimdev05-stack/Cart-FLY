@@ -2923,12 +2923,12 @@ button:active:not(:disabled),
    -------------------------------------------------------------------------- */
 .sidebar-storage-widget {
   margin: 10px 12px 14px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   background: rgba(14, 20, 38, 0.75);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
   display: flex;
@@ -2945,7 +2945,7 @@ button:active:not(:disabled),
 .storage-info-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   color: rgba(255, 255, 255, 0.85);
   font-size: 12px;
   font-weight: 600;
@@ -2990,6 +2990,33 @@ button:active:not(:disabled),
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
 }
 
+.status-pulse-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  animation: pulseDot 2s infinite ease-in-out;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-pulse-dot.pending {
+  background: #F59E0B;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+
+.status-pulse-dot.inactive {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
 .storage-widget-footer {
   display: flex;
   align-items: center;
@@ -3005,20 +3032,6 @@ button:active:not(:disabled),
   color: #34D399;
   font-weight: 600;
   letter-spacing: 0.02em;
-}
-
-.status-pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10B981;
-  box-shadow: 0 0 6px #10B981;
-  animation: pulseDot 2s infinite ease-in-out;
-}
-
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
 }
 
 .btn-sync-link {

@@ -105,6 +105,16 @@
               <span id="dropdownGdriveEmail" class="chip-email">Not Connected</span>
               <a id="dropdownDriveViewLink" class="btn-open-drive-link" target="_blank" rel="noopener noreferrer" style="display: none;" title="Open database in Google Drive">View ↗</a>
             </div>
+
+            <!-- Recovery Email Chip -->
+            <div class="dropdown-gdrive-chip" id="dropdownRecoveryChip" style="margin-top: -4px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              <span class="chip-label">Recovery:</span>
+              <span id="dropdownRecoveryEmail" class="chip-email">Not Set</span>
+              <button type="button" id="btnEditRecoveryEmail" class="btn-open-drive-link" style="cursor: pointer; display: inline-flex;" title="Set or change recovery email">Edit</button>
+            </div>
             <!-- Copy Email Button -->
             <div class="dropdown-copy-section">
               <button id="dropdownCopyEmailBtn" class="btn-dropdown-copy">
@@ -266,6 +276,15 @@
                 <div class="hint" id="strength">Use 6+ characters. Add numbers and symbols for a stronger password.</div>
                 <div class="msg" role="alert"></div>
               </div>
+              <div class="field">
+                <label class="sr" for="cr-recovery">Recovery Email (optional)</label>
+                <div class="box">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <input id="cr-recovery" type="email" autocomplete="email" placeholder="Recovery email, e.g. you@gmail.com (optional)" spellcheck="false">
+                </div>
+                <div class="hint">Optional: Used to reset password via 6-digit code if forgotten.</div>
+                <div class="msg" role="alert"></div>
+              </div>
               <button class="cta" type="submit"><span class="spin"></span><span class="lbl">Create account</span><svg class="arr" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
               <div class="toast" role="status"></div>
               <p class="swap">Already have an account? <a href="#signin">Sign in</a></p>
@@ -312,33 +331,19 @@
           <!-- Message List -->
           <div id="messagesContainer" class="messages-container"></div>
           <!-- SIDEBAR STORAGE & GDRIVE STATUS BAR -->
-          <div class="sidebar-storage-widget" id="sidebarStorageWidget">
+          <div class="sidebar-storage-widget" id="sidebarStorageWidget" title="Google Drive 60 MB Mailbox Database">
             <div class="storage-widget-header">
               <div class="storage-info-left">
                 <svg class="gdrive-mini-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                 </svg>
                 <span class="storage-label">Drive Storage</span>
+                <span class="status-pulse-dot" id="gdrivePulseDot" title="Drive Active"></span>
               </div>
-              <span id="storageUsedText" class="storage-fraction">0.05 MB / 60 MB</span>
+              <span id="storageUsedText" class="storage-fraction">0 KB / 60 MB</span>
             </div>
             <div class="storage-track">
               <div id="storageProgressBar" class="storage-fill" style="width: 2%;"></div>
-            </div>
-            <div class="storage-widget-footer">
-              <div class="gdrive-status-pill" id="gdriveStatusPill" title="Click to view Drive settings">
-                <span class="status-pulse-dot"></span>
-                <span id="gdriveStatusText">Drive Active</span>
-              </div>
-              <button type="button" id="btnSyncDrive" class="btn-sync-link" title="Force sync with Google Drive">Sync</button>
-            </div>
-            <div class="storage-linked-account" id="storageLinkedAccount">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-              </svg>
-              <span id="storageLinkedEmail" class="linked-email-text" title="Linked Google Drive Account">Not Linked</span>
-              <a id="btnOpenDriveFile" class="btn-open-drive-link" target="_blank" rel="noopener noreferrer" style="display: none;" title="Open database in Google Drive">View ↗</a>
             </div>
           </div>
         </aside>
@@ -786,6 +791,45 @@
             </svg>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SET RECOVERY EMAIL MODAL (APPLE LIQUID GLASS) -->
+  <div id="setRecoveryModal" class="modal-overlay hidden">
+    <div class="modal-card glass-modal recovery-modal-card">
+      <div class="modal-glow-top"></div>
+
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <h3>Set Recovery Email</h3>
+          <p class="modal-subhead">Add any personal email (Gmail, Outlook, Yahoo, etc.)</p>
+        </div>
+        <button type="button" id="setRecoveryCloseBtn" class="btn-close-modal" aria-label="Close" title="Close">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-content recovery-modal-content">
+        <p class="rec-step-desc">Enter any email address you own. If you ever forget your mailbox password, a 6-digit verification code will be sent to this address:</p>
+        <div class="input-field-group">
+          <div class="input-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </div>
+          <input type="email" id="setRecoveryEmailInput" placeholder="your-personal@gmail.com" required autocomplete="email" />
+        </div>
+        <button type="button" id="btnSaveRecoveryEmail" class="btn-gradient-submit">
+          <span>Save Recovery Email</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
       </div>
     </div>
   </div>

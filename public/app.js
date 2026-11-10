@@ -126,6 +126,7 @@ const gdrivePermissionAlert = document.getElementById('gdrivePermissionAlert');
 const sidebarStorageWidget = document.getElementById('sidebarStorageWidget');
 const storageUsedText = document.getElementById('storageUsedText');
 const storageProgressBar = document.getElementById('storageProgressBar');
+const gdrivePulseDot = document.getElementById('gdrivePulseDot');
 const gdriveStatusPill = document.getElementById('gdriveStatusPill');
 const gdriveStatusText = document.getElementById('gdriveStatusText');
 const storageLinkedAccount = document.getElementById('storageLinkedAccount');
@@ -646,11 +647,11 @@ async function loadDomains(forceFresh = false) {
   }
 }
 
-async function createAccount(username, domain, password) {
+async function createAccount(username, domain, password, recoveryEmail = '') {
   const res = await fetch('/api/create-account', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, domain, password })
+    body: JSON.stringify({ username, domain, password, recoveryEmail })
   });
 
   const data = await res.json();
@@ -703,6 +704,17 @@ function renderActiveSession() {
     dropdownPasswordText.classList.add('pwd-masked');
   }
   if (dropdownTogglePassBtn) dropdownTogglePassBtn.textContent = 'Show';
+
+  const dropdownRecoveryEmail = document.getElementById('dropdownRecoveryEmail');
+  const btnEditRecoveryEmail = document.getElementById('btnEditRecoveryEmail');
+  if (dropdownRecoveryEmail) {
+    const recMail = currentAccount.recoveryEmail || currentAccount.driveEmail || '';
+    dropdownRecoveryEmail.textContent = recMail || 'Not Set';
+    dropdownRecoveryEmail.title = recMail ? `Recovery Email: ${recMail}` : 'Click edit to set recovery email';
+    if (btnEditRecoveryEmail) {
+      btnEditRecoveryEmail.textContent = recMail ? 'Change' : '+ Add';
+    }
+  }
 
   // Workspace View
   if (mandatoryAuthView) mandatoryAuthView.classList.add('hidden');
@@ -1054,6 +1066,8 @@ function setupLandingUserAuth() {
       e.preventDefault();
       const u = $('#cr-user');
       const pw = $('#cr-pass');
+      const rec = $('#cr-recovery');
+      const recoveryEmail = rec ? rec.value.trim() : '';
       const domVal = $('#dom-val');
       const domain = domVal ? domVal.textContent : 'mailflux.online';
       let ok = true;
@@ -1064,6 +1078,10 @@ function setupLandingUserAuth() {
       }
       if (pw.value.length < 6) {
         window.failField(pw, 'Password needs at least 6 characters.');
+        ok = false;
+      }
+      if (recoveryEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail)) {
+        window.failField(rec, 'Please enter a valid recovery email address.');
         ok = false;
       }
       if (!ok) {
@@ -1078,7 +1096,7 @@ function setupLandingUserAuth() {
       if (toast) toast.classList.remove('on');
 
       try {
-        await createAccount(u.value.trim().toLowerCase(), domain, pw.value.trim());
+        await createAccount(u.value.trim().toLowerCase(), domain, pw.value.trim(), recoveryEmail);
       } catch(err) {
         window.failField(u, err.message || 'Failed to create mailbox.');
         u.focus();
@@ -1352,7 +1370,7 @@ async function fetchMessages() {
       updateStorageWidget({
         usedBytes: approxBytes,
         limitBytes,
-        usedMb: parseFloat(usedMb) < 0.01 ? '0.05' : usedMb,
+        usedMb,
         limitMb: 60,
         percent: Math.max(1, percent),
         isFull: approxBytes >= limitBytes
@@ -1781,10 +1799,21 @@ document.addEventListener('pointerdown', (e) => {
 // ==========================================================================
 const GOOGLE_CLIENT_ID = '112999651074-u3dc2tp4m1ofsig3h2mupv0348noshdp.apps.googleusercontent.com';
 let gdriveLinkedState = false;
+function formatStorageSize(bytes) {
+  if (!bytes || bytes <= 0) return '0 KB';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) {
+    const kb = (bytes / 1024).toFixed(1);
+    return `${kb.endsWith('.0') ? kb.slice(0, -2) : kb} KB`;
+  }
+  const mb = (bytes / (1024 * 1024)).toFixed(2);
+  return `${mb.endsWith('.00') ? mb.slice(0, -3) : mb} MB`;
+}
+
 let mailboxStorageData = {
   usedBytes: 0,
   limitBytes: 60 * 1024 * 1024,
-  usedMb: '0.05',
+  usedMb: '0.00',
   percent: 1,
   isFull: false
 };
@@ -1857,11 +1886,17 @@ function updateStorageWidget(storage, isLinked) {
   if (!storage) return;
 
   if (storageUsedText) {
-    storageUsedText.textContent = `${storage.usedMb} MB / 60 MB`;
+    let usedText = '0 KB';
+    if (typeof storage.usedBytes === 'number' && storage.usedBytes > 0) {
+      usedText = formatStorageSize(storage.usedBytes);
+    } else if (storage.usedMb && parseFloat(storage.usedMb) > 0) {
+      usedText = `${storage.usedMb} MB`;
+    }
+    storageUsedText.textContent = `${usedText} / 60 MB`;
   }
 
   if (storageProgressBar) {
-    const pct = Math.max(2, Math.min(100, storage.percent));
+    const pct = Math.max(2, Math.min(100, storage.percent || 1));
     storageProgressBar.style.width = pct + '%';
     
     storageProgressBar.classList.remove('warn', 'full');
@@ -1869,6 +1904,17 @@ function updateStorageWidget(storage, isLinked) {
       storageProgressBar.classList.add('full');
     } else if (pct >= 80) {
       storageProgressBar.classList.add('warn');
+    }
+  }
+
+  const pulseDotEl = document.getElementById('gdrivePulseDot');
+  if (pulseDotEl) {
+    if (isLinked) {
+      pulseDotEl.className = 'status-pulse-dot';
+      pulseDotEl.title = 'Drive Active (Synced)';
+    } else {
+      pulseDotEl.className = 'status-pulse-dot pending';
+      pulseDotEl.title = 'Drive Pending';
     }
   }
 
@@ -1959,6 +2005,11 @@ async function ensureGoogleToken(allowInteractive = false) {
   let token = getActiveGoogleToken();
   if (token) return token;
 
+  // Never pop up Google authentication automatically during page load or background sync
+  if (!allowInteractive) {
+    return null;
+  }
+
   if (window.google && google.accounts && google.accounts.oauth2 && currentAccount) {
     try {
       token = await new Promise((resolve) => {
@@ -1966,7 +2017,7 @@ async function ensureGoogleToken(allowInteractive = false) {
           client_id: GOOGLE_CLIENT_ID,
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
           hint: currentAccount.driveEmail || undefined,
-          prompt: allowInteractive ? 'select_account' : '',
+          prompt: 'select_account',
           callback: (resp) => {
             if (resp && resp.access_token) {
               saveActiveGoogleToken(resp.access_token);
@@ -1976,11 +2027,11 @@ async function ensureGoogleToken(allowInteractive = false) {
             }
           }
         });
-        client.requestAccessToken({ prompt: allowInteractive ? 'select_account' : '' });
+        client.requestAccessToken({ prompt: 'select_account' });
       });
       return token;
     } catch(e) {
-      console.warn('Silent token check notice:', e);
+      console.warn('Google token prompt notice:', e);
       return null;
     }
   }
@@ -2571,6 +2622,90 @@ if (btnRecSubmitNewPass) {
     } finally {
       btnRecSubmitNewPass.disabled = false;
       btnRecSubmitNewPass.innerHTML = '<span>Set New Password & Sign In</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+    }
+  });
+}
+
+// --------------------------------------------------------------------------
+// SET RECOVERY EMAIL SYSTEM (ANY EXTERNAL EMAIL)
+// --------------------------------------------------------------------------
+const setRecoveryModal = document.getElementById('setRecoveryModal');
+const setRecoveryCloseBtn = document.getElementById('setRecoveryCloseBtn');
+const setRecoveryEmailInput = document.getElementById('setRecoveryEmailInput');
+const btnSaveRecoveryEmail = document.getElementById('btnSaveRecoveryEmail');
+const btnEditRecoveryEmail = document.getElementById('btnEditRecoveryEmail');
+
+function openSetRecoveryModal() {
+  if (!setRecoveryModal || !currentAccount) return;
+  if (setRecoveryEmailInput) {
+    setRecoveryEmailInput.value = currentAccount.recoveryEmail || '';
+    setTimeout(() => setRecoveryEmailInput.focus(), 80);
+  }
+  setRecoveryModal.classList.remove('hidden');
+}
+
+function closeSetRecoveryModal() {
+  if (setRecoveryModal) setRecoveryModal.classList.add('hidden');
+}
+
+if (btnEditRecoveryEmail) {
+  btnEditRecoveryEmail.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSetRecoveryModal();
+  });
+}
+
+if (setRecoveryCloseBtn) {
+  setRecoveryCloseBtn.addEventListener('click', closeSetRecoveryModal);
+}
+
+if (setRecoveryModal) {
+  setRecoveryModal.addEventListener('click', (e) => {
+    if (e.target === setRecoveryModal) closeSetRecoveryModal();
+  });
+}
+
+if (btnSaveRecoveryEmail) {
+  btnSaveRecoveryEmail.addEventListener('click', async () => {
+    if (!currentAccount) return;
+    const email = setRecoveryEmailInput ? setRecoveryEmailInput.value.trim() : '';
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToast('Please enter a valid email address (e.g. you@gmail.com).');
+      return;
+    }
+
+    btnSaveRecoveryEmail.disabled = true;
+    btnSaveRecoveryEmail.innerHTML = '<span>Saving...</span>';
+
+    try {
+      const res = await fetch('/api/account/recovery-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentAccount.token}`
+        },
+        body: JSON.stringify({ recoveryEmail: email })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to save recovery email');
+      }
+
+      currentAccount.recoveryEmail = email;
+      saveRecentAccount(currentAccount);
+      localStorage.setItem('mailtm_current_account', JSON.stringify(currentAccount));
+
+      const dropdownRecoveryEmail = document.getElementById('dropdownRecoveryEmail');
+      if (dropdownRecoveryEmail) dropdownRecoveryEmail.textContent = email;
+      if (btnEditRecoveryEmail) btnEditRecoveryEmail.textContent = 'Change';
+
+      closeSetRecoveryModal();
+      showToast('🛡️ Recovery email set to: ' + email);
+    } catch(err) {
+      showToast(err.message || 'Error updating recovery email');
+    } finally {
+      btnSaveRecoveryEmail.disabled = false;
+      btnSaveRecoveryEmail.innerHTML = '<span>Save Recovery Email</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     }
   });
 }
