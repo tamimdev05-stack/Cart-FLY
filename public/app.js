@@ -1351,14 +1351,13 @@ async function fetchMessages() {
 
       // Persist to 24-hour local storage
       saveCachedMessages(currentAccount.address, messages);
-      syncMailboxToGoogleDrive(true);
 
       if (currentFolder === 'inbox') {
         renderMessagesList(getSearchQuery());
       }
 
-      // Automatically auto-sync with Google Drive database whenever emails change
-      if (incoming.length !== prevMessagesCount) {
+      // Automatically auto-sync with Google Drive database whenever emails change or on first load
+      if (incoming.length !== prevMessagesCount || lastSyncedEmailsCount === -1) {
         syncMailboxToGoogleDrive();
       }
 
@@ -1963,77 +1962,141 @@ function updateStorageWidget(storage, isLinked) {
 }
 
 // Google Drive Token & Instant Auto-Update Engine
-function saveActiveGoogleToken(token) {
+function saveActiveGoogleToken(token, expiresIn = 3500) {
   if (!token) return;
   window.activeGoogleToken = token;
-  const now = Date.now();
+  const expiryTime = Date.now() + (expiresIn * 1000);
+  window.activeGoogleTokenExp = expiryTime;
   try {
     if (currentAccount && currentAccount.address) {
       localStorage.setItem('mailflux_gtoken_' + currentAccount.address, token);
-      localStorage.setItem('mailflux_gtime_' + currentAccount.address, String(now));
+      localStorage.setItem('mailflux_gexp_' + currentAccount.address, String(expiryTime));
       sessionStorage.setItem('mailflux_gtoken_' + currentAccount.address, token);
     }
     localStorage.setItem('mailflux_last_gtoken', token);
-    localStorage.setItem('mailflux_last_gtime', String(now));
+    localStorage.setItem('mailflux_last_gexp', String(expiryTime));
     sessionStorage.setItem('mailflux_last_gtoken', token);
   } catch(e) {}
 }
 
+function clearActiveGoogleToken() {
+  window.activeGoogleToken = null;
+  window.activeGoogleTokenExp = null;
+  try {
+    if (currentAccount && currentAccount.address) {
+      localStorage.removeItem('mailflux_gtoken_' + currentAccount.address);
+      localStorage.removeItem('mailflux_gexp_' + currentAccount.address);
+      localStorage.removeItem('mailflux_gtime_' + currentAccount.address);
+      sessionStorage.removeItem('mailflux_gtoken_' + currentAccount.address);
+    }
+    localStorage.removeItem('mailflux_last_gtoken');
+    localStorage.removeItem('mailflux_last_gexp');
+    localStorage.removeItem('mailflux_last_gtime');
+    sessionStorage.removeItem('mailflux_last_gtoken');
+  } catch(e) {}
+}
+
 function getActiveGoogleToken() {
-  if (window.activeGoogleToken) return window.activeGoogleToken;
+  if (window.activeGoogleToken) {
+    const exp = window.activeGoogleTokenExp || 0;
+    if (!exp || Date.now() < exp) return window.activeGoogleToken;
+    clearActiveGoogleToken();
+    return null;
+  }
   try {
     let saved = null;
-    let savedTime = null;
+    let savedExp = null;
     if (currentAccount && currentAccount.address) {
       saved = localStorage.getItem('mailflux_gtoken_' + currentAccount.address) || 
               sessionStorage.getItem('mailflux_gtoken_' + currentAccount.address);
-      savedTime = localStorage.getItem('mailflux_gtime_' + currentAccount.address);
+      savedExp = localStorage.getItem('mailflux_gexp_' + currentAccount.address);
     }
     if (!saved) {
       saved = localStorage.getItem('mailflux_last_gtoken') || sessionStorage.getItem('mailflux_last_gtoken');
-      savedTime = localStorage.getItem('mailflux_last_gtime');
+      savedExp = localStorage.getItem('mailflux_last_gexp');
     }
     if (saved) {
+      if (savedExp && Date.now() > parseInt(savedExp, 10)) {
+        clearActiveGoogleToken();
+        return null;
+      }
       window.activeGoogleToken = saved;
+      window.activeGoogleTokenExp = savedExp ? parseInt(savedExp, 10) : 0;
       return saved;
     }
   } catch(e) {}
   return null;
 }
 
+let tokenRequestInProgress = null;
+
 async function ensureGoogleToken(allowInteractive = false) {
   let token = getActiveGoogleToken();
   if (token) return token;
 
-  // Never pop up Google authentication automatically during page load or background sync
-  if (!allowInteractive) {
-    return null;
+  // Deduplicate in-flight requests
+  if (tokenRequestInProgress) {
+    return tokenRequestInProgress;
   }
 
   if (window.google && google.accounts && google.accounts.oauth2 && currentAccount) {
-    try {
-      token = await new Promise((resolve) => {
+    tokenRequestInProgress = new Promise((resolve) => {
+      let isSettled = false;
+      const timeout = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          resolve(null);
+        }
+      }, allowInteractive ? 60000 : 4000);
+
+      try {
         const client = google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
-          hint: currentAccount.driveEmail || undefined,
-          prompt: 'select_account',
+          hint: (currentAccount && currentAccount.driveEmail) ? currentAccount.driveEmail : undefined,
+          prompt: allowInteractive ? 'select_account' : 'none',
           callback: (resp) => {
-            if (resp && resp.access_token) {
-              saveActiveGoogleToken(resp.access_token);
-              resolve(resp.access_token);
-            } else {
+            if (!isSettled) {
+              isSettled = true;
+              clearTimeout(timeout);
+              if (resp && resp.access_token) {
+                const expiresIn = resp.expires_in ? parseInt(resp.expires_in, 10) : 3500;
+                saveActiveGoogleToken(resp.access_token, expiresIn);
+                resolve(resp.access_token);
+              } else {
+                resolve(null);
+              }
+            }
+          },
+          error_callback: (err) => {
+            if (!isSettled) {
+              isSettled = true;
+              clearTimeout(timeout);
+              console.warn('Google token prompt notice:', err);
               resolve(null);
             }
           }
         });
-        client.requestAccessToken({ prompt: 'select_account' });
-      });
-      return token;
-    } catch(e) {
-      console.warn('Google token prompt notice:', e);
-      return null;
-    }
+
+        if (allowInteractive) {
+          client.requestAccessToken({ prompt: 'select_account' });
+        } else {
+          // Attempt silent token refresh without showing a popup window
+          client.requestAccessToken({ prompt: 'none' });
+        }
+      } catch(e) {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timeout);
+          console.warn('Google token initialization notice:', e);
+          resolve(null);
+        }
+      }
+    }).finally(() => {
+      tokenRequestInProgress = null;
+    });
+
+    return tokenRequestInProgress;
   }
   return null;
 }
@@ -2049,9 +2112,15 @@ async function syncMailboxToGoogleDrive(force = false) {
   const totalCount = currentCount + (sentMessages ? sentMessages.length : 0);
   if (!force && totalCount === lastSyncedEmailsCount) return;
 
-  const token = await ensureGoogleToken(false);
+  // Try silent token retrieval first
+  let token = await ensureGoogleToken(false);
   if (!token) {
-    console.warn('Google Drive auto-sync waiting for active token. Click Sync to refresh.');
+    console.warn('Google Drive auto-sync: silent token unavailable. User can click storage widget to authorize.');
+    const pulseDotEl = document.getElementById('gdrivePulseDot');
+    if (pulseDotEl) {
+      pulseDotEl.className = 'status-pulse-dot pending';
+      pulseDotEl.title = 'Drive Sync paused (Click here to authorize Google Drive)';
+    }
     return;
   }
 
@@ -2102,7 +2171,7 @@ async function syncMailboxToGoogleDrive(force = false) {
     let needsCreate = !fileId || fileId.startsWith('gdrive_db_');
 
     if (!needsCreate) {
-      const patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      let patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -2111,9 +2180,32 @@ async function syncMailboxToGoogleDrive(force = false) {
         body: JSON.stringify(dbPayload, null, 2)
       });
 
+      // If token expired (401), invalidate and retry once with fresh silent token
+      if (patchRes.status === 401) {
+        console.warn('Google token expired (401), invalidating and refreshing silently...');
+        clearActiveGoogleToken();
+        const freshToken = await ensureGoogleToken(false);
+        if (freshToken) {
+          token = freshToken;
+          patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(dbPayload, null, 2)
+          });
+        }
+      }
+
       if (patchRes.ok) {
         lastSyncedEmailsCount = totalCount;
         console.log(`✅ Google Drive successfully updated with ${currentCount} emails! (file: ${fileId})`);
+        const pulseDotEl = document.getElementById('gdrivePulseDot');
+        if (pulseDotEl) {
+          pulseDotEl.className = 'status-pulse-dot';
+          pulseDotEl.title = `Drive Active (Synced ${currentCount} emails)`;
+        }
         showToast(`☁️ Google Drive updated: ${currentCount} emails synced`);
         return;
       }
@@ -2148,7 +2240,7 @@ async function syncMailboxToGoogleDrive(force = false) {
           saveRecentAccount(currentAccount);
           localStorage.setItem('mailtm_current_account', JSON.stringify(currentAccount));
 
-          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+          const patchNewRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -2170,8 +2262,15 @@ async function syncMailboxToGoogleDrive(force = false) {
             })
           });
 
-          lastSyncedEmailsCount = totalCount;
-          showToast(`☁️ Google Drive database created and updated (${currentCount} emails)`);
+          if (patchNewRes.ok) {
+            lastSyncedEmailsCount = totalCount;
+            const pulseDotEl = document.getElementById('gdrivePulseDot');
+            if (pulseDotEl) {
+              pulseDotEl.className = 'status-pulse-dot';
+              pulseDotEl.title = `Drive Active (Synced ${currentCount} emails)`;
+            }
+            showToast(`☁️ Google Drive database created and updated (${currentCount} emails)`);
+          }
         }
       }
     }
@@ -2184,7 +2283,7 @@ async function syncMailboxToGoogleDrive(force = false) {
 
 async function triggerDriveSync() {
   if (!currentAccount) return;
-  if (btnSyncDrive) btnSyncDrive.textContent = '...';
+  showToast('🔄 Syncing with Google Drive...');
   try {
     await fetchMessages();
     await fetchSentMessages();
@@ -2196,10 +2295,8 @@ async function triggerDriveSync() {
       await connectGoogleDriveAccount();
     }
   } catch(e) {
-    console.error('Manual drive sync error:', e);
+    console.error('Drive sync notice:', e);
     showToast('Sync notice: ' + (e.message || ''));
-  } finally {
-    if (btnSyncDrive) btnSyncDrive.textContent = 'Sync';
   }
 }
 
@@ -2237,7 +2334,8 @@ async function connectGoogleDriveAccount() {
 
     const accessToken = tokenResponse.access_token;
     if (!accessToken) throw new Error('Failed to obtain Google access token.');
-    saveActiveGoogleToken(accessToken);
+    const expiresIn = tokenResponse.expires_in ? parseInt(tokenResponse.expires_in, 10) : 3500;
+    saveActiveGoogleToken(accessToken, expiresIn);
 
     const hasDriveScope = (tokenResponse.scope && tokenResponse.scope.includes('drive')) || 
       (window.google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.hasGrantedAllScopes && google.accounts.oauth2.hasGrantedAllScopes(tokenResponse, 'https://www.googleapis.com/auth/drive.file'));
