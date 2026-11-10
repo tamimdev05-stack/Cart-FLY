@@ -9,6 +9,463 @@ import PostalMime from 'postal-mime';
 
 const ALLOWED_DOMAINS = ['mailflux.online', 'freelancingaid.online'];
 
+async function getGoogleOAuthCredentials(env) {
+  if (env && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+    return { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
+  }
+  if (env && env.MAIL_KV) {
+    try {
+      const raw = await env.MAIL_KV.get('config:google_oauth');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.clientId && parsed.clientSecret) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+  }
+  return { clientId: '', clientSecret: '' };
+}
+
+// Helper: Exchange Google OAuth2 Authorization Code for Access + Refresh Token
+async function exchangeGoogleAuthCode(code, env) {
+  const { clientId, clientSecret } = await getGoogleOAuthCredentials(env);
+  const params = new URLSearchParams({
+    code,
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uri: 'postmessage',
+    grant_type: 'authorization_code'
+  });
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error_description || data.error || 'Failed to exchange Google authorization code');
+  }
+  return data;
+}
+
+// Helper: Refresh Google OAuth2 Access Token using Refresh Token
+async function refreshGoogleAccessToken(refreshToken, env) {
+  if (!refreshToken) return null;
+  const { clientId, clientSecret } = await getGoogleOAuthCredentials(env);
+  const params = new URLSearchParams({
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: 'refresh_token'
+  });
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  return (data && data.access_token) ? data : null;
+}
+
+// Helper: Fetch Google User Email from Access Token
+async function fetchGoogleUserProfile(accessToken) {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return null;
+}
+
+// Helper: Make Google Drive DB file public so anyone with link can view/edit
+async function ensurePublicDrivePermission(fileId, accessToken) {
+  if (!fileId || !accessToken) return false;
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions?supportsAllDrives=true`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        role: 'writer',
+        type: 'anyone'
+      })
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Helper: Server-Side Automatic Google Drive Database Sync Engine
+async function syncMailboxToGoogleDriveServer(env, address, authOptions = {}) {
+  if (!address) return { synced: false, reason: 'missing_address' };
+  const cleanAddress = address.trim().toLowerCase();
+  const gdriveKey = `gdrive:${cleanAddress}`;
+
+  let rawGdrive = await env.MAIL_KV.get(gdriveKey);
+  let gdriveData = rawGdrive ? JSON.parse(rawGdrive) : null;
+
+  if (!gdriveData && !authOptions.code && !authOptions.accessToken && !authOptions.fileId) {
+    return { synced: false, reason: 'not_linked' };
+  }
+
+  if (!gdriveData) {
+    gdriveData = {
+      address: cleanAddress,
+      driveEmail: authOptions.driveEmail || `${cleanAddress.split('@')[0]}@gmail.com`,
+      fileId: authOptions.fileId || null,
+      webViewLink: authOptions.webViewLink || 'https://drive.google.com',
+      linkedAt: new Date().toISOString(),
+      status: 'active',
+      storageLimitBytes: 60 * 1024 * 1024
+    };
+  }
+
+  if (authOptions.driveEmail && authOptions.driveEmail !== 'Google Account') {
+    gdriveData.driveEmail = authOptions.driveEmail;
+  }
+  if (authOptions.fileId && !authOptions.fileId.startsWith('gdrive_db_')) {
+    gdriveData.fileId = authOptions.fileId;
+  }
+  if (authOptions.webViewLink && authOptions.webViewLink.includes('/file/d/')) {
+    gdriveData.webViewLink = authOptions.webViewLink;
+  }
+
+  let accessToken = null;
+
+  // 1. Exchange authorization code if provided
+  if (authOptions.code) {
+    try {
+      const tokenData = await exchangeGoogleAuthCode(authOptions.code, env);
+      if (tokenData && tokenData.access_token) {
+        accessToken = tokenData.access_token;
+        gdriveData.accessToken = accessToken;
+        gdriveData.tokenExpiry = Date.now() + ((tokenData.expires_in || 3500) - 120) * 1000;
+      }
+      if (tokenData && tokenData.refresh_token) {
+        gdriveData.refreshToken = tokenData.refresh_token;
+      }
+    } catch (codeErr) {
+      console.warn('Auth code exchange warning:', codeErr.message);
+    }
+  }
+
+  // 2. Or use direct accessToken if provided by client
+  if (!accessToken && authOptions.accessToken) {
+    accessToken = authOptions.accessToken;
+    gdriveData.accessToken = accessToken;
+    gdriveData.tokenExpiry = Date.now() + ((authOptions.expiresIn || 3500) - 120) * 1000;
+    if (authOptions.refreshToken) {
+      gdriveData.refreshToken = authOptions.refreshToken;
+    }
+  }
+
+  // Fetch Google user profile if we just got a fresh token
+  if (accessToken && (authOptions.code || authOptions.accessToken)) {
+    const profile = await fetchGoogleUserProfile(accessToken);
+    if (profile && profile.email) {
+      gdriveData.driveEmail = profile.email.toLowerCase();
+    }
+    // Persist shared token under driveEmail & master_tokens for cross-mailbox background auto-sync
+    if (gdriveData.driveEmail) {
+      const sharedTokenKey = `gdrive_token:${gdriveData.driveEmail.toLowerCase()}`;
+      const existingSharedRaw = await env.MAIL_KV.get(sharedTokenKey);
+      const existingShared = existingSharedRaw ? JSON.parse(existingSharedRaw) : {};
+      const updatedShared = {
+        driveEmail: gdriveData.driveEmail.toLowerCase(),
+        accessToken: gdriveData.accessToken,
+        tokenExpiry: gdriveData.tokenExpiry,
+        refreshToken: gdriveData.refreshToken || existingShared.refreshToken || null,
+        updatedAt: new Date().toISOString()
+      };
+      if (updatedShared.refreshToken && !gdriveData.refreshToken) {
+        gdriveData.refreshToken = updatedShared.refreshToken;
+      }
+      await env.MAIL_KV.put(sharedTokenKey, JSON.stringify(updatedShared));
+    }
+
+    // Also save into global master_tokens pool so public Drive files can sync even without per-mailbox token
+    if (gdriveData.refreshToken || gdriveData.accessToken) {
+      try {
+        const masterRaw = await env.MAIL_KV.get('gdrive:master_tokens');
+        let masterList = masterRaw ? JSON.parse(masterRaw) : [];
+        if (!Array.isArray(masterList)) masterList = [];
+        const emailKey = (gdriveData.driveEmail || 'default').toLowerCase();
+        const existingEntry = masterList.find(item => item.driveEmail === emailKey) || {};
+        const newEntry = {
+          driveEmail: emailKey,
+          accessToken: gdriveData.accessToken || existingEntry.accessToken || null,
+          tokenExpiry: gdriveData.tokenExpiry || existingEntry.tokenExpiry || 0,
+          refreshToken: gdriveData.refreshToken || existingEntry.refreshToken || null,
+          updatedAt: new Date().toISOString()
+        };
+        masterList = [newEntry, ...masterList.filter(item => item.driveEmail !== emailKey)].slice(0, 20);
+        await env.MAIL_KV.put('gdrive:master_tokens', JSON.stringify(masterList));
+      } catch (e) {}
+    }
+  }
+
+  // 3. If no active token passed in request, resolve from stored KV tokens
+  if (!accessToken) {
+    if (gdriveData.accessToken && gdriveData.tokenExpiry && Date.now() < gdriveData.tokenExpiry) {
+      accessToken = gdriveData.accessToken;
+    } else if (gdriveData.refreshToken) {
+      const refreshed = await refreshGoogleAccessToken(gdriveData.refreshToken, env);
+      if (refreshed && refreshed.access_token) {
+        accessToken = refreshed.access_token;
+        gdriveData.accessToken = accessToken;
+        gdriveData.tokenExpiry = Date.now() + ((refreshed.expires_in || 3500) - 120) * 1000;
+        if (refreshed.refresh_token) gdriveData.refreshToken = refreshed.refresh_token;
+      }
+    }
+  }
+
+  // 4. Check shared token by linked Google email (e.g., if user authorized another mailbox with same Gmail)
+  if (!accessToken && gdriveData.driveEmail) {
+    const sharedTokenKey = `gdrive_token:${gdriveData.driveEmail.toLowerCase()}`;
+    const sharedRaw = await env.MAIL_KV.get(sharedTokenKey);
+    if (sharedRaw) {
+      try {
+        const shared = JSON.parse(sharedRaw);
+        if (shared.refreshToken) {
+          gdriveData.refreshToken = shared.refreshToken;
+        }
+        if (shared.accessToken && shared.tokenExpiry && Date.now() < shared.tokenExpiry) {
+          accessToken = shared.accessToken;
+          gdriveData.accessToken = accessToken;
+          gdriveData.tokenExpiry = shared.tokenExpiry;
+        } else if (shared.refreshToken) {
+          const refreshed = await refreshGoogleAccessToken(shared.refreshToken, env);
+          if (refreshed && refreshed.access_token) {
+            accessToken = refreshed.access_token;
+            gdriveData.accessToken = accessToken;
+            gdriveData.tokenExpiry = Date.now() + ((refreshed.expires_in || 3500) - 120) * 1000;
+            shared.accessToken = accessToken;
+            shared.tokenExpiry = gdriveData.tokenExpiry;
+            await env.MAIL_KV.put(sharedTokenKey, JSON.stringify(shared));
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  // 5. Fallback to global master_tokens pool (for public Google Drive files when Gmail is not logged in)
+  let usingFallbackMasterToken = false;
+  if (!accessToken) {
+    try {
+      const masterRaw = await env.MAIL_KV.get('gdrive:master_tokens');
+      const masterList = masterRaw ? JSON.parse(masterRaw) : [];
+      if (Array.isArray(masterList) && masterList.length > 0) {
+        for (let i = 0; i < masterList.length; i++) {
+          const item = masterList[i];
+          if (item.accessToken && item.tokenExpiry && Date.now() < item.tokenExpiry) {
+            accessToken = item.accessToken;
+            usingFallbackMasterToken = true;
+            break;
+          } else if (item.refreshToken) {
+            const refreshed = await refreshGoogleAccessToken(item.refreshToken, env);
+            if (refreshed && refreshed.access_token) {
+              accessToken = refreshed.access_token;
+              item.accessToken = accessToken;
+              item.tokenExpiry = Date.now() + ((refreshed.expires_in || 3500) - 120) * 1000;
+              await env.MAIL_KV.put('gdrive:master_tokens', JSON.stringify(masterList));
+              usingFallbackMasterToken = true;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Read current mailbox messages from KV
+  const rawInbox = await env.MAIL_KV.get(`inbox:${cleanAddress}`);
+  const rawSent = await env.MAIL_KV.get(`sent:${cleanAddress}`);
+  const inbox = rawInbox ? JSON.parse(rawInbox) : [];
+  const sent = rawSent ? JSON.parse(rawSent) : [];
+  const totalCount = inbox.length + sent.length;
+
+  // If no valid accessToken could be resolved on the server
+  if (!accessToken) {
+    await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveData));
+    return {
+      synced: false,
+      needsAuth: true,
+      hasServerToken: false,
+      gdrive: {
+        address: gdriveData.address,
+        driveEmail: gdriveData.driveEmail,
+        fileId: gdriveData.fileId,
+        webViewLink: gdriveData.webViewLink,
+        linkedAt: gdriveData.linkedAt,
+        status: gdriveData.status
+      }
+    };
+  }
+
+  // Build full JSON database payload
+  const dbPayload = {
+    mailbox: cleanAddress,
+    lastUpdated: new Date().toISOString(),
+    linkedGoogleAccount: gdriveData.driveEmail || 'Google Account',
+    storageLimitMb: 60,
+    messagesCount: inbox.length,
+    totalEmails: totalCount,
+    inboxCount: inbox.length,
+    sentCount: sent.length,
+    messages: inbox.map(m => ({
+      id: m.id,
+      from: m.from,
+      to: m.to,
+      subject: m.subject,
+      intro: m.intro,
+      seen: m.seen,
+      createdAt: m.createdAt,
+      timestamp: m.timestamp
+    })),
+    inbox: inbox.map(m => ({
+      id: m.id,
+      from: m.from,
+      to: m.to,
+      subject: m.subject,
+      intro: m.intro,
+      seen: m.seen,
+      createdAt: m.createdAt,
+      timestamp: m.timestamp
+    })),
+    sent: sent.map(s => ({
+      id: s.id,
+      from: s.from,
+      to: s.to,
+      subject: s.subject,
+      intro: s.intro,
+      seen: s.seen,
+      createdAt: s.createdAt,
+      timestamp: s.timestamp
+    }))
+  };
+
+  let fileId = gdriveData.fileId;
+  let needsCreate = !fileId || fileId.startsWith('gdrive_db_');
+  let syncOk = false;
+
+  if (!needsCreate) {
+    let patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(dbPayload, null, 2)
+    });
+
+    // If token was revoked or expired early (401), refresh using refreshToken and retry once
+    if (patchRes.status === 401 && gdriveData.refreshToken) {
+      const refreshed = await refreshGoogleAccessToken(gdriveData.refreshToken, env);
+      if (refreshed && refreshed.access_token) {
+        accessToken = refreshed.access_token;
+        gdriveData.accessToken = accessToken;
+        gdriveData.tokenExpiry = Date.now() + ((refreshed.expires_in || 3500) - 120) * 1000;
+        patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(dbPayload, null, 2)
+        });
+      }
+    }
+
+    if (patchRes.ok) {
+      syncOk = true;
+      if (!gdriveData.publicPermissionSet) {
+        const permOk = await ensurePublicDrivePermission(fileId, accessToken);
+        if (permOk) gdriveData.publicPermissionSet = true;
+      }
+    } else if ((patchRes.status === 404 || patchRes.status === 403) && !usingFallbackMasterToken && (authOptions.code || authOptions.accessToken)) {
+      needsCreate = true;
+    } else if (patchRes.status === 401) {
+      gdriveData.accessToken = null;
+      gdriveData.tokenExpiry = 0;
+      await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveData));
+      return {
+        synced: false,
+        needsAuth: true,
+        hasServerToken: false,
+        gdrive: gdriveData
+      };
+    }
+  }
+
+  if (needsCreate) {
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: `mailflux_${cleanAddress.replace(/[@.]/g, '_')}_db.json`,
+        mimeType: 'application/json',
+        description: `MailFlux 60 MB Persistent Mailbox Database for ${cleanAddress}`
+      })
+    });
+
+    if (createRes.ok) {
+      const fileData = await createRes.json().catch(() => null);
+      if (fileData && fileData.id) {
+        fileId = fileData.id;
+        gdriveData.fileId = fileId;
+        gdriveData.webViewLink = `https://drive.google.com/file/d/${fileId}/view`;
+
+        // Automatically set public permission so anyone with the link can view/edit
+        const permOk = await ensurePublicDrivePermission(fileId, accessToken);
+        if (permOk) gdriveData.publicPermissionSet = true;
+
+        const patchNewRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(dbPayload, null, 2)
+        });
+        syncOk = patchNewRes.ok;
+      }
+    }
+  }
+
+  if (syncOk) {
+    gdriveData.lastSyncedCount = totalCount;
+    gdriveData.lastSyncedAt = new Date().toISOString();
+  }
+
+  await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveData));
+
+  return {
+    synced: syncOk,
+    needsAuth: !syncOk && !gdriveData.refreshToken,
+    hasServerToken: !!(gdriveData.refreshToken || (gdriveData.accessToken && gdriveData.tokenExpiry > Date.now())),
+    totalEmails: totalCount,
+    gdrive: {
+      address: gdriveData.address,
+      driveEmail: gdriveData.driveEmail,
+      fileId: gdriveData.fileId,
+      webViewLink: gdriveData.webViewLink,
+      linkedAt: gdriveData.linkedAt,
+      lastSyncedAt: gdriveData.lastSyncedAt,
+      lastSyncedCount: gdriveData.lastSyncedCount,
+      status: gdriveData.status
+    }
+  };
+}
+
 // Helper: Decode Quoted-Printable MIME encoded strings
 function decodeQuotedPrintable(input) {
   if (typeof input !== 'string') return input;
@@ -146,6 +603,13 @@ export default {
         currentInbox = [metadata, ...currentInbox.filter(m => m.id !== msgId)].slice(0, 1000);
         await env.MAIL_KV.put(inboxKey, JSON.stringify(currentInbox));
         console.log(`✅ Stored message for ${rcpt}: "${parsed.subject}" (ID: ${msgId})`);
+
+        // Automatically sync updated inbox to Google Drive in background
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(syncMailboxToGoogleDriveServer(env, rcpt).catch(e => console.warn('Inbound Drive sync notice:', e)));
+        } else {
+          await syncMailboxToGoogleDriveServer(env, rcpt).catch(() => {});
+        }
       }
 
     } catch(err) {
@@ -581,6 +1045,21 @@ export default {
         // Auto-sort newest first
         messages.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
+        // Background auto-sync to Google Drive if message count changed
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil((async () => {
+            try {
+              const rawGd = await env.MAIL_KV.get(`gdrive:${authenticatedAddress}`);
+              if (rawGd) {
+                const gd = JSON.parse(rawGd);
+                if (gd.lastSyncedCount !== messages.length) {
+                  await syncMailboxToGoogleDriveServer(env, authenticatedAddress);
+                }
+              }
+            } catch (e) {}
+          })());
+        }
+
         return jsonResponse({
           success: true,
           messages,
@@ -686,6 +1165,10 @@ export default {
           try {
             await env.MAIL_KV.delete(bodyKey);
           } catch(e) {}
+
+          if (ctx && typeof ctx.waitUntil === 'function') {
+            ctx.waitUntil(syncMailboxToGoogleDriveServer(env, authenticatedAddress).catch(() => {}));
+          }
 
           return jsonResponse({ success: true, message: 'Message deleted successfully' });
         }
@@ -811,6 +1294,14 @@ export default {
             if (rawRecp) currentRecipientInbox = JSON.parse(rawRecp);
             currentRecipientInbox = [inboxMsg, ...currentRecipientInbox.filter(m => m.id !== sentMsgId)].slice(0, 1000);
             await env.MAIL_KV.put(recipientInboxKey, JSON.stringify(currentRecipientInbox));
+
+            if (ctx && typeof ctx.waitUntil === 'function') {
+              ctx.waitUntil(syncMailboxToGoogleDriveServer(env, recipientClean).catch(() => {}));
+            }
+          }
+
+          if (ctx && typeof ctx.waitUntil === 'function') {
+            ctx.waitUntil(syncMailboxToGoogleDriveServer(env, authenticatedAddress).catch(() => {}));
           }
         } catch(e) {
           console.warn('Failed to record sent/received email in KV:', e);
@@ -868,10 +1359,42 @@ export default {
         const usedMb = (usedBytes / (1024 * 1024)).toFixed(3);
         const percent = Math.min(100, Math.round((usedBytes / limitBytes) * 100));
 
+        // Check if server has a valid refreshToken or shared token for this driveEmail
+        let hasServerToken = false;
+        if (gdriveInfo) {
+          if (gdriveInfo.refreshToken || (gdriveInfo.accessToken && gdriveInfo.tokenExpiry && Date.now() < gdriveInfo.tokenExpiry)) {
+            hasServerToken = true;
+          } else if (gdriveInfo.driveEmail) {
+            const sharedRaw = await env.MAIL_KV.get(`gdrive_token:${gdriveInfo.driveEmail.toLowerCase()}`);
+            if (sharedRaw) {
+              try {
+                const sh = JSON.parse(sharedRaw);
+                if (sh.refreshToken || (sh.accessToken && sh.tokenExpiry && Date.now() < sh.tokenExpiry)) {
+                  hasServerToken = true;
+                }
+              } catch (e) {}
+            }
+          }
+        }
+
+        if (isLinked && hasServerToken && ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(syncMailboxToGoogleDriveServer(env, authenticatedAddress).catch(() => {}));
+        }
+
         return jsonResponse({
           success: true,
           linked: isLinked,
-          gdrive: gdriveInfo,
+          hasServerToken,
+          gdrive: gdriveInfo ? {
+            address: gdriveInfo.address,
+            driveEmail: gdriveInfo.driveEmail,
+            fileId: gdriveInfo.fileId,
+            webViewLink: gdriveInfo.webViewLink,
+            linkedAt: gdriveInfo.linkedAt,
+            lastSyncedAt: gdriveInfo.lastSyncedAt || null,
+            lastSyncedCount: typeof gdriveInfo.lastSyncedCount === 'number' ? gdriveInfo.lastSyncedCount : null,
+            status: gdriveInfo.status
+          } : null,
           storage: {
             usedBytes,
             limitBytes,
@@ -883,35 +1406,158 @@ export default {
         });
       }
 
-      // 10. Link Google Drive to Mailbox (Mandatory 60MB Database Activation)
-      if (pathname === '/gdrive/link' && method === 'POST') {
+      // 10. Link or Sync Google Drive to Mailbox (Mandatory 60MB Database Activation & Permanent Auto-Sync)
+      if ((pathname === '/gdrive/link' || pathname === '/gdrive/sync') && method === 'POST') {
         if (!authenticatedAddress) {
           return jsonResponse({ success: false, error: 'Authorization header required.' }, 401);
         }
 
         let body = {};
         try { body = await request.json(); } catch(e) {
-          return jsonResponse({ success: false, error: 'Invalid JSON request' }, 400);
+          body = {};
         }
 
-        const { driveEmail, fileId, webViewLink } = body;
-        const gdriveRecord = {
-          address: authenticatedAddress,
-          driveEmail: driveEmail || `${authenticatedAddress.split('@')[0]}@gmail.com`,
-          fileId: fileId || `gdrive_db_${Date.now()}`,
-          webViewLink: webViewLink || 'https://drive.google.com',
-          linkedAt: new Date().toISOString(),
-          status: 'active',
-          storageLimitBytes: 60 * 1024 * 1024
-        };
-
-        const gdriveKey = `gdrive:${authenticatedAddress}`;
-        await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveRecord));
+        const { code, accessToken, expiresIn, refreshToken, driveEmail, fileId, webViewLink } = body;
+        const syncResult = await syncMailboxToGoogleDriveServer(env, authenticatedAddress, {
+          code,
+          accessToken,
+          expiresIn,
+          refreshToken,
+          driveEmail,
+          fileId,
+          webViewLink
+        });
 
         return jsonResponse({
           success: true,
-          message: 'Google Drive successfully linked to mailbox (60 MB storage activated)',
-          gdrive: gdriveRecord
+          synced: !!syncResult.synced,
+          needsAuth: !!syncResult.needsAuth,
+          hasServerToken: !!syncResult.hasServerToken,
+          totalEmails: syncResult.totalEmails || 0,
+          message: syncResult.synced
+            ? 'Google Drive database automatically synced!'
+            : 'Google Drive linked to mailbox (60 MB storage activated)',
+          gdrive: syncResult.gdrive
+        });
+      }
+
+      // 10A-1. Background Auto-Sync Queue for All Linked Mailboxes (Zero-Login Real-Time Sync)
+      if (pathname === '/gdrive/sync-queue' && method === 'GET') {
+        const forceAll = url.searchParams.get('all') === '1';
+        const listRes = await env.MAIL_KV.list({ prefix: 'gdrive:' });
+        const keys = (listRes && Array.isArray(listRes.keys)) ? listRes.keys : [];
+        const queue = [];
+
+        for (const k of keys) {
+          if (!k.name || k.name === 'gdrive:master_tokens') continue;
+          const address = k.name.replace(/^gdrive:/, '').trim().toLowerCase();
+          if (!address) continue;
+
+          try {
+            const rawGd = await env.MAIL_KV.get(k.name);
+            if (!rawGd) continue;
+            const gdriveData = JSON.parse(rawGd);
+            if (!gdriveData || !gdriveData.fileId) continue;
+
+            const rawInbox = await env.MAIL_KV.get(`inbox:${address}`);
+            const rawSent = await env.MAIL_KV.get(`sent:${address}`);
+            const inboxList = rawInbox ? JSON.parse(rawInbox) : [];
+            const sentList = rawSent ? JSON.parse(rawSent) : [];
+            const totalCount = inboxList.length + sentList.length;
+
+            if (!forceAll && gdriveData.lastSyncedCount === totalCount) {
+              continue;
+            }
+
+            // Try server-side token sync first
+            const srvSync = await syncMailboxToGoogleDriveServer(env, address);
+            if (srvSync && srvSync.synced && !forceAll) {
+              continue;
+            }
+
+            // Build full payload for CLI/daemon sync
+            const detailedInbox = await Promise.all(
+              inboxList.slice(0, 200).map(async (msg) => {
+                try {
+                  const rawBody = await env.MAIL_KV.get(`body:${msg.id}`);
+                  if (rawBody) {
+                    const parsedBody = JSON.parse(rawBody);
+                    return {
+                      id: msg.id,
+                      from: msg.from,
+                      to: msg.to,
+                      subject: msg.subject,
+                      intro: msg.intro,
+                      text: parsedBody.text || '',
+                      html: parsedBody.html || [],
+                      seen: msg.seen,
+                      createdAt: msg.createdAt
+                    };
+                  }
+                } catch (e) {}
+                return msg;
+              })
+            );
+
+            const dbPayload = {
+              mailbox: address,
+              lastUpdated: new Date().toISOString(),
+              linkedGoogleAccount: gdriveData.driveEmail || 'Linked Google Account',
+              storageLimitMb: 60,
+              messagesCount: detailedInbox.length,
+              totalEmails: totalCount,
+              inboxCount: detailedInbox.length,
+              sentCount: sentList.length,
+              messages: detailedInbox,
+              inbox: detailedInbox,
+              sent: sentList
+            };
+
+            queue.push({
+              address,
+              fileId: gdriveData.fileId,
+              driveEmail: gdriveData.driveEmail,
+              totalEmails: totalCount,
+              lastSyncedCount: gdriveData.lastSyncedCount,
+              dbPayload
+            });
+          } catch (e) {}
+        }
+
+        return jsonResponse({
+          success: true,
+          count: queue.length,
+          queue
+        });
+      }
+
+      // 10A-2. Mark Mailbox Drive File as Synced
+      if (pathname === '/gdrive/mark-synced' && method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+        const cleanAddress = (body.address || '').trim().toLowerCase();
+        if (!cleanAddress) {
+          return jsonResponse({ success: false, error: 'Address required' }, 400);
+        }
+        const gdriveKey = `gdrive:${cleanAddress}`;
+        const rawGd = await env.MAIL_KV.get(gdriveKey);
+        if (!rawGd) {
+          return jsonResponse({ success: false, error: 'GDrive record not found' }, 404);
+        }
+        const gdriveData = JSON.parse(rawGd);
+        if (typeof body.totalEmails === 'number') {
+          gdriveData.lastSyncedCount = body.totalEmails;
+        }
+        if (body.fileId) {
+          gdriveData.fileId = body.fileId;
+          gdriveData.webViewLink = `https://drive.google.com/file/d/${body.fileId}/view`;
+        }
+        gdriveData.lastSyncedAt = new Date().toISOString();
+        await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveData));
+
+        return jsonResponse({
+          success: true,
+          gdrive: gdriveData
         });
       }
 
