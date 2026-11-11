@@ -1850,6 +1850,10 @@ export default {
               lastSyncedCount: gdriveData.lastSyncedCount,
               dbPayload
             });
+
+            if (!forceAll && queue.length >= 2) {
+              break;
+            }
           } catch (e) {}
         }
 
