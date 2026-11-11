@@ -1752,6 +1752,7 @@ export default {
         if (keys.length === 0) {
           const seedAddresses = [
             'shadeprotexas@freelancingaid.online',
+            'maofacialplastics@mailflux.online',
             'nashvillebarbike@mailflux.online',
             'mainstreetfinance@freelancingaid.online',
             'tamim1@mailflux.online',
@@ -1795,29 +1796,37 @@ export default {
               continue;
             }
 
-            // Build full payload for CLI/daemon sync
-            const detailedInbox = await Promise.all(
-              inboxList.slice(0, 200).map(async (msg) => {
-                try {
-                  const rawBody = await env.MAIL_KV.get(`body:${msg.id}`);
-                  if (rawBody) {
-                    const parsedBody = JSON.parse(rawBody);
-                    return {
-                      id: msg.id,
-                      from: msg.from,
-                      to: msg.to,
-                      subject: msg.subject,
-                      intro: msg.intro,
-                      text: parsedBody.text || '',
-                      html: parsedBody.html || [],
-                      seen: msg.seen,
-                      createdAt: msg.createdAt
-                    };
-                  }
-                } catch (e) {}
-                return msg;
-              })
-            );
+            // Fetch bodies in 1 single D1 query (avoids Cloudflare 50-subrequest limit)
+            const bodyMap = new Map();
+            if (env.MAIL_DB) {
+              try {
+                const d1Bodies = await env.MAIL_DB.prepare(
+                  'SELECT id, text_body, html_json FROM messages WHERE recipient = ? AND folder = ? LIMIT 200'
+                ).bind(address, 'inbox').all();
+                for (const row of (d1Bodies.results || [])) {
+                  bodyMap.set(row.id, {
+                    text: row.text_body || '',
+                    html: JSON.parse(row.html_json || '[]')
+                  });
+                }
+              } catch (e) {}
+            }
+
+            const detailedInbox = inboxList.slice(0, 200).map((msg) => {
+              const b = bodyMap.get(msg.id);
+              return {
+                id: msg.id,
+                from: msg.from,
+                to: msg.to,
+                subject: msg.subject,
+                intro: msg.intro,
+                text: b ? b.text : (msg.text || ''),
+                html: b ? b.html : (msg.html || []),
+                seen: msg.seen,
+                createdAt: msg.createdAt,
+                timestamp: msg.timestamp
+              };
+            });
 
             const dbPayload = {
               mailbox: address,
