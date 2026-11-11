@@ -9,6 +9,101 @@ import PostalMime from 'postal-mime';
 
 const ALLOWED_DOMAINS = ['mailflux.online', 'freelancingaid.online'];
 
+// Helper: D1 + KV Hybrid Smart Storage (100,000 writes/day, 5,000,000 reads/day, 100% strongly consistent)
+function createSmartEnv(rawEnv) {
+  if (!rawEnv || rawEnv._isSmart) return rawEnv;
+  const rawKV = rawEnv.MAIL_KV;
+  const db = rawEnv.MAIL_DB;
+  if (!db) return rawEnv;
+
+  const smartKV = {
+    async get(key) {
+      if (!key) return null;
+      try {
+        const row = await db.prepare('SELECT v FROM kv_store WHERE k = ?').bind(key).first();
+        if (row && typeof row.v === 'string') {
+          return row.v;
+        }
+      } catch (e) {}
+
+      if (rawKV) {
+        try {
+          const val = await rawKV.get(key);
+          if (val !== null && val !== undefined) {
+            await db.prepare('INSERT OR IGNORE INTO kv_store (k, v, updated_at) VALUES (?, ?, ?)')
+              .bind(key, val, Date.now())
+              .run()
+              .catch(() => {});
+            return val;
+          }
+        } catch (e) {}
+      }
+      return null;
+    },
+
+    async put(key, value, options) {
+      if (!key) return;
+      const valStr = typeof value === 'string' ? value : JSON.stringify(value);
+      try {
+        await db.prepare('INSERT OR REPLACE INTO kv_store (k, v, updated_at) VALUES (?, ?, ?)')
+          .bind(key, valStr, Date.now())
+          .run();
+      } catch (e) {}
+
+      // Only mirror small account/config/gdrive keys to KV if quota permits (never throw on KV daily limit)
+      if (rawKV && (key.startsWith('acc:') || key.startsWith('gdrive:') || key.startsWith('config:') || key.startsWith('otp:'))) {
+        await rawKV.put(key, valStr, options).catch(() => {});
+      }
+    },
+
+    async delete(key) {
+      if (!key) return;
+      try {
+        await db.prepare('DELETE FROM kv_store WHERE k = ?').bind(key).run();
+      } catch (e) {}
+      if (rawKV) {
+        await rawKV.delete(key).catch(() => {});
+      }
+    },
+
+    async list(opts = {}) {
+      const prefix = opts.prefix || '';
+      const limit = opts.limit || 500;
+      const keyMap = new Map();
+      try {
+        const res = await db.prepare('SELECT k FROM kv_store WHERE k LIKE ? LIMIT ?')
+          .bind(`${prefix}%`, limit)
+          .all();
+        if (res && Array.isArray(res.results)) {
+          for (const r of res.results) {
+            if (r && r.k) keyMap.set(r.k, { name: r.k });
+          }
+        }
+      } catch (e) {}
+
+      // Only fall back to rawKV.list if D1 returned 0 keys for this prefix
+      if (keyMap.size === 0 && rawKV) {
+        try {
+          const kvRes = await rawKV.list(opts);
+          if (kvRes && Array.isArray(kvRes.keys)) {
+            for (const k of kvRes.keys) {
+              if (k && k.name) keyMap.set(k.name, k);
+            }
+          }
+        } catch (e) {}
+      }
+      return { keys: Array.from(keyMap.values()) };
+    }
+  };
+
+  return {
+    ...rawEnv,
+    _isSmart: true,
+    RAW_KV: rawKV,
+    MAIL_KV: smartKV
+  };
+}
+
 async function getGoogleOAuthCredentials(env) {
   if (env && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
     return { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
@@ -101,7 +196,7 @@ async function ensurePublicDrivePermission(fileId, accessToken) {
   }
 }
 
-// Helper: Authoritative Zero-Loss Inbox Reader (Merges per-message atomic keys + index)
+// Helper: Authoritative Zero-Loss Inbox Reader (D1 SQL + KV Index Merge)
 async function getAuthoritativeInbox(env, address) {
   if (!address) return [];
   const cleanAddress = address.trim().toLowerCase();
@@ -112,10 +207,9 @@ async function getAuthoritativeInbox(env, address) {
   let deletedIds = new Set();
 
   try {
-    const [rawInbox, rawDeleted, kvList] = await Promise.all([
+    const [rawInbox, rawDeleted] = await Promise.all([
       env.MAIL_KV.get(inboxKey),
-      env.MAIL_KV.get(deletedKey),
-      env.MAIL_KV.list({ prefix: `msg:${cleanAddress}:`, limit: 500 }).catch(() => ({ keys: [] }))
+      env.MAIL_KV.get(deletedKey)
     ]);
 
     if (rawDeleted) {
@@ -140,37 +234,35 @@ async function getAuthoritativeInbox(env, address) {
     }
 
     let mergedNew = false;
-    const keys = (kvList && Array.isArray(kvList.keys)) ? kvList.keys : [];
-    for (const item of keys) {
-      let meta = item.metadata;
-      if (!meta || !meta.id) {
-        try {
-          const rawItem = await env.MAIL_KV.get(item.name);
-          if (rawItem) {
-            const p = JSON.parse(rawItem);
-            if (p && p.id) {
-              meta = {
-                id: p.id,
-                from: p.from,
-                to: p.to,
-                subject: (p.subject || '(No Subject)').substring(0, 100),
-                intro: (p.intro || '').substring(0, 120),
-                seen: !!p.seen,
-                createdAt: p.createdAt,
-                timestamp: p.timestamp || new Date(p.createdAt || Date.now()).getTime()
-              };
-            }
+
+    // Query strongly-consistent D1 messages table
+    if (env.MAIL_DB) {
+      try {
+        const d1Res = await env.MAIL_DB.prepare(
+          'SELECT id, from_json, to_json, subject, intro, seen, created_at, timestamp FROM messages WHERE recipient = ? AND folder = ? ORDER BY timestamp DESC LIMIT 1000'
+        ).bind(cleanAddress, 'inbox').all();
+
+        const rows = (d1Res && Array.isArray(d1Res.results)) ? d1Res.results : [];
+        for (const r of rows) {
+          if (!r || !r.id || deletedIds.has(r.id)) continue;
+          const meta = {
+            id: r.id,
+            from: JSON.parse(r.from_json || '{}'),
+            to: JSON.parse(r.to_json || '[]'),
+            subject: r.subject || '(No Subject)',
+            intro: r.intro || '',
+            seen: !!r.seen,
+            createdAt: r.created_at,
+            timestamp: r.timestamp
+          };
+          if (!byId.has(meta.id)) {
+            byId.set(meta.id, meta);
+            mergedNew = true;
+          } else if (meta.seen && !byId.get(meta.id).seen) {
+            byId.get(meta.id).seen = true;
           }
-        } catch (e) {}
-      }
-      if (meta && meta.id && !deletedIds.has(meta.id)) {
-        if (!byId.has(meta.id)) {
-          byId.set(meta.id, meta);
-          mergedNew = true;
-        } else if (meta.seen && !byId.get(meta.id).seen) {
-          byId.get(meta.id).seen = true;
         }
-      }
+      } catch (e) {}
     }
 
     const mergedList = Array.from(byId.values())
@@ -188,7 +280,8 @@ async function getAuthoritativeInbox(env, address) {
 }
 
 // Helper: Server-Side Automatic Google Drive Database Sync Engine
-async function syncMailboxToGoogleDriveServer(env, address, authOptions = {}) {
+async function syncMailboxToGoogleDriveServer(rawEnv, address, authOptions = {}) {
+  const env = createSmartEnv(rawEnv);
   if (!address) return { synced: false, reason: 'missing_address' };
   const cleanAddress = address.trim().toLowerCase();
   const gdriveKey = `gdrive:${cleanAddress}`;
@@ -377,7 +470,9 @@ async function syncMailboxToGoogleDriveServer(env, address, authOptions = {}) {
 
   // If no valid accessToken could be resolved on the server
   if (!accessToken) {
-    await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveData));
+    if (authOptions.driveEmail || authOptions.fileId || authOptions.webViewLink || authOptions.code || authOptions.accessToken) {
+      await env.MAIL_KV.put(gdriveKey, JSON.stringify(gdriveData));
+    }
     return {
       synced: false,
       needsAuth: true,
@@ -600,7 +695,8 @@ export default {
   // -------------------------------------------------------------
   // 1. CLOUDFLARE EMAIL ROUTING WORKER HANDLER
   // -------------------------------------------------------------
-  async email(message, env, ctx) {
+  async email(message, rawEnv, ctx) {
+    const env = createSmartEnv(rawEnv);
     try {
       function extractCleanEmail(str) {
         if (!str || typeof str !== 'string') return '';
@@ -744,14 +840,30 @@ export default {
         }
       }
 
-      // 3. Atomically store per-message key AND update inbox list for each recipient (100% immune to KV PoP race conditions)
+      // 3. Atomically store in D1 SQL messages table AND update inbox list for each recipient (100% immune to KV PoP race conditions & KV daily write limits)
       for (const rcpt of targetRecipients) {
-        // Write atomic per-message key with metadata first
-        const perMsgKey = `msg:${rcpt}:${timestamp}:${msgId}`;
-        await env.MAIL_KV.put(perMsgKey, JSON.stringify(metadata), {
-          metadata,
-          expirationTtl: 86400 * 365
-        }).catch(() => {});
+        if (env.MAIL_DB) {
+          try {
+            await env.MAIL_DB.prepare(
+              'INSERT OR REPLACE INTO messages (id, recipient, folder, from_json, to_json, subject, intro, text_body, html_json, raw_mime, seen, created_at, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)'
+            ).bind(
+              msgId,
+              rcpt,
+              'inbox',
+              JSON.stringify(parsed.from),
+              JSON.stringify(parsed.to),
+              metadata.subject,
+              metadata.intro,
+              parsed.text || '',
+              JSON.stringify(parsed.html || []),
+              parsed.raw || '',
+              parsed.createdAt,
+              timestamp
+            ).run();
+          } catch (d1Err) {
+            console.warn('D1 message insert notice:', d1Err);
+          }
+        }
 
         // Merge with authoritative inbox
         const inboxKey = `inbox:${rcpt}`;
@@ -778,7 +890,8 @@ export default {
   // -------------------------------------------------------------
   // 2. HTTP REST API HANDLER
   // -------------------------------------------------------------
-  async fetch(request, env, ctx) {
+  async fetch(request, rawEnv, ctx) {
+    const env = createSmartEnv(rawEnv);
     const url = new URL(request.url);
     const method = request.method.toUpperCase();
 
@@ -1224,9 +1337,32 @@ export default {
         const bodyKey = `body:${id}`;
 
         if (method === 'GET') {
-          const rawMsg = await env.MAIL_KV.get(bodyKey);
-          if (!rawMsg) return jsonResponse({ success: false, error: 'Message content not found' }, 404);
-          let message = JSON.parse(rawMsg);
+          let message = null;
+          if (env.MAIL_DB) {
+            try {
+              const row = await env.MAIL_DB.prepare('SELECT * FROM messages WHERE id = ? LIMIT 1').bind(id).first();
+              if (row && row.id) {
+                message = {
+                  id: row.id,
+                  subject: row.subject || '(No Subject)',
+                  from: JSON.parse(row.from_json || '{}'),
+                  to: JSON.parse(row.to_json || '[]'),
+                  createdAt: row.created_at,
+                  timestamp: row.timestamp,
+                  intro: row.intro || '',
+                  text: row.text_body || '',
+                  html: JSON.parse(row.html_json || '[]'),
+                  seen: !!row.seen,
+                  raw: row.raw_mime || ''
+                };
+              }
+            } catch (e) {}
+          }
+          if (!message) {
+            const rawMsg = await env.MAIL_KV.get(bodyKey);
+            if (!rawMsg) return jsonResponse({ success: false, error: 'Message content not found' }, 404);
+            message = JSON.parse(rawMsg);
+          }
 
           // On-the-fly PostalMime fallback for emails previously stored as raw/unparsed text
           if ((!message.html || message.html.length === 0 || (message.html[0] && message.html[0].includes('=09'))) && message.raw) {
@@ -1259,6 +1395,12 @@ export default {
         }
 
         if (method === 'PATCH') {
+          if (env.MAIL_DB) {
+            try {
+              await env.MAIL_DB.prepare('UPDATE messages SET seen = 1 WHERE id = ?').bind(id).run();
+            } catch (e) {}
+          }
+
           // Mark as seen in user's authoritative inbox list without overwriting newly arrived emails
           const inboxKey = `inbox:${authenticatedAddress}`;
           try {
@@ -1267,13 +1409,6 @@ export default {
             if (target) {
               target.seen = true;
               await env.MAIL_KV.put(inboxKey, JSON.stringify(list));
-              if (target.timestamp) {
-                const perMsgKey = `msg:${authenticatedAddress}:${target.timestamp}:${id}`;
-                await env.MAIL_KV.put(perMsgKey, JSON.stringify(target), {
-                  metadata: target,
-                  expirationTtl: 86400 * 365
-                }).catch(() => {});
-              }
             }
           } catch(e) {}
 
@@ -1291,6 +1426,14 @@ export default {
         }
 
         if (method === 'DELETE') {
+          if (env.MAIL_DB) {
+            try {
+              await env.MAIL_DB.prepare('DELETE FROM messages WHERE id = ? AND recipient = ?')
+                .bind(id, authenticatedAddress)
+                .run();
+            } catch (e) {}
+          }
+
           // Record in deleted set so eventual consistency never resurrects a deleted email
           const deletedKey = `deleted:${authenticatedAddress}`;
           try {
@@ -1303,14 +1446,10 @@ export default {
             }
           } catch (e) {}
 
-          // Remove from user's authoritative inbox list and per-message atomic keys
+          // Remove from user's authoritative inbox list
           const inboxKey = `inbox:${authenticatedAddress}`;
           try {
             const currentList = await getAuthoritativeInbox(env, authenticatedAddress);
-            const target = currentList.find(m => m.id === id);
-            if (target && target.timestamp) {
-              await env.MAIL_KV.delete(`msg:${authenticatedAddress}:${target.timestamp}:${id}`).catch(() => {});
-            }
             const list = currentList.filter(m => m.id !== id);
             await env.MAIL_KV.put(inboxKey, JSON.stringify(list));
           } catch(e) {}
@@ -1608,8 +1747,26 @@ export default {
       // 10A-1. Background Auto-Sync Queue for All Linked Mailboxes (Zero-Login Real-Time Sync)
       if (pathname === '/gdrive/sync-queue' && method === 'GET') {
         const forceAll = url.searchParams.get('all') === '1';
-        const listRes = await env.MAIL_KV.list({ prefix: 'gdrive:' });
-        const keys = (listRes && Array.isArray(listRes.keys)) ? listRes.keys : [];
+        let listRes = await env.MAIL_KV.list({ prefix: 'gdrive:' });
+        let keys = (listRes && Array.isArray(listRes.keys)) ? listRes.keys : [];
+        if (keys.length === 0) {
+          const seedAddresses = [
+            'shadeprotexas@freelancingaid.online',
+            'nashvillebarbike@mailflux.online',
+            'mainstreetfinance@freelancingaid.online',
+            'tamim1@mailflux.online',
+            'tamim@freelancingaid.online',
+            'freelancingaid@mailflux.online',
+            'getprestigeclean@freelancingaid.online',
+            'motplumbingservices@mailflux.online',
+            'orthoatlantaevans@mailflux.online',
+            'nyneurologistsny@mailflux.online'
+          ];
+          for (const sa of seedAddresses) {
+            const v = await env.MAIL_KV.get(`gdrive:${sa}`);
+            if (v) keys.push({ name: `gdrive:${sa}` });
+          }
+        }
         const queue = [];
 
         for (const k of keys) {

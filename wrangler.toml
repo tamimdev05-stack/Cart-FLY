@@ -9,3 +9,8 @@ not_found_handling = "single-page-application"
 [[kv_namespaces]]
 binding = "MAIL_KV"
 id = "005d3816b99648a6822050f9bb2fe526"
+
+[[d1_databases]]
+binding = "MAIL_DB"
+database_name = "mailflux-db"
+database_id = "fa88ce72-ce89-470c-a7a0-63ea0dee636f"
