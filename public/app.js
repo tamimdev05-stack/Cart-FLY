@@ -2111,7 +2111,7 @@ function requestGoogleCodeSynchronously(onSuccess, onError) {
     return;
   }
 
-  const scopeStr = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
+  const scopeStr = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
 
   if (typeof google.accounts.oauth2.initCodeClient === 'function') {
     const codeClient = google.accounts.oauth2.initCodeClient({
