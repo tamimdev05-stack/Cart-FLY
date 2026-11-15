@@ -4036,3 +4036,11 @@ blockquote {
 .msg-from-name {
   max-width: calc(100% - 85px) !important;
 }
+
+/* Hide reader tabs (Formatted, Plain Text, Headers) per Antigravity design */
+.reader-tabs {
+  display: none !important;
+}
+.reader-sender-box {
+  margin-bottom: 0 !important;
+}
