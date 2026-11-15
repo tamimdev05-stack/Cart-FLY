@@ -1634,13 +1634,16 @@ async function deleteMessage(id) {
 }
 
 function triggerManualRefresh() {
-  manualRefreshIcon.style.animation = 'spin 1s linear infinite';
+  if (!manualRefreshBtn || manualRefreshBtn.classList.contains('refreshing')) return;
+  manualRefreshBtn.classList.add('refreshing');
+  const startTime = Date.now();
   const p = currentFolder === 'sent' ? fetchSentMessages() : fetchMessages();
-  p.then(() => {
+  p.finally(() => {
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, 650 - elapsed);
     setTimeout(() => {
-      manualRefreshIcon.style.animation = '';
-      showToast('Checked for new messages');
-    }, 600);
+      manualRefreshBtn.classList.remove('refreshing');
+    }, remaining);
   });
 }
 
