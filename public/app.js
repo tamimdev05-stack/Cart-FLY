@@ -1,3 +1,23 @@
+
+function updateUnreadCountBadge() {
+  const unreadCount = messages.filter(m => !m.seen).length;
+  if (unreadBadge) {
+    unreadBadge.textContent = messages.length;
+    if (messages.length > 0) {
+      unreadBadge.classList.remove('hidden');
+    } else {
+      unreadBadge.classList.add('hidden');
+    }
+    if (unreadCount > 0) {
+      unreadBadge.classList.add('has-unread');
+      unreadBadge.title = `${messages.length} messages (${unreadCount} unread)`;
+    } else {
+      unreadBadge.classList.remove('has-unread');
+      unreadBadge.title = `${messages.length} messages`;
+    }
+  }
+}
+
 // Mailflux Client
 let currentAccount = null;
 let messages = [];
@@ -1406,6 +1426,7 @@ async function fetchSentMessages() {
 }
 
 function renderMessagesList(filterText = '') {
+  const _savedScrollTop = messagesContainer ? messagesContainer.scrollTop : 0;
   if (!currentAccount) return;
 
   const currentList = currentFolder === 'sent' ? sentMessages : messages;
@@ -1466,6 +1487,7 @@ function renderMessagesList(filterText = '') {
     const card = document.createElement('div');
     const isSent = currentFolder === 'sent';
     card.className = 'msg-item-card' + (msg.id === activeMessageId ? ' active' : '') + (!msg.seen && !isSent ? ' unread' : '');
+    card.dataset.msgId = msg.id;
 
     const contactName = isSent 
       ? 'To: ' + (msg.to?.map(t => t.address).join(', ') || 'Recipient')
@@ -1490,6 +1512,7 @@ function renderMessagesList(filterText = '') {
     card.addEventListener('click', () => loadMessage(msg.id));
     messagesContainer.appendChild(card);
   });
+  if (messagesContainer && _savedScrollTop > 0) messagesContainer.scrollTop = _savedScrollTop;
 }
 
 async function loadMessage(id) {
@@ -1501,8 +1524,23 @@ async function loadMessage(id) {
   if (targetMsg && !targetMsg.seen) {
     targetMsg.seen = true;
     saveCachedMessages(currentAccount.address, messages);
+    if (typeof updateUnreadCountBadge === 'function') updateUnreadCountBadge();
   }
-  renderMessagesList(getSearchQuery());
+
+  // Update card classes in-place without rebuilding DOM or jittering scroll
+  if (messagesContainer) {
+    const allCards = messagesContainer.querySelectorAll('.msg-item-card');
+    allCards.forEach(c => {
+      if (c.dataset.msgId === id) {
+        c.classList.add('active');
+        c.classList.remove('unread');
+        const dot = c.querySelector('.unread-glow-dot');
+        if (dot) dot.remove();
+      } else {
+        c.classList.remove('active');
+      }
+    });
+  }
 
   // 2. Asynchronously notify backend to mark as seen on server
   fetch(`/api/messages/${id}`, {

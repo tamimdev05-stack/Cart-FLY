@@ -4044,3 +4044,92 @@ blockquote {
 .reader-sender-box {
   margin-bottom: 0 !important;
 }
+
+/* ==========================================================================
+   ZERO-JITTER / ROCK SOLID ANTIGRAVITY STABILITY (NO SHAKE / NO LAYOUT SHIFT)
+   ========================================================================== */
+
+/* 1. Prevent border-width shift on message cards */
+.msg-item-card {
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-left: 3px solid transparent !important;
+  transform: none !important;
+  transition: background 0.12s ease, border-color 0.12s ease !important;
+  box-sizing: border-box !important;
+}
+
+.msg-item-card:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  border-left-color: rgba(255, 255, 255, 0.18) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.msg-item-card.active {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  border-left: 3px solid #3b82f6 !important;
+  transform: none !important;
+  box-shadow: inset 0 0 14px rgba(59, 130, 246, 0.05) !important;
+}
+
+.msg-item-card:active {
+  transform: none !important;
+}
+
+/* 2. Remove all active scale / translateY bounces from all buttons and controls */
+button,
+button:hover,
+button:active,
+button:focus,
+.btn,
+.btn:hover,
+.btn:active,
+.btn:focus,
+.btn-link-action,
+.btn-link-action:hover,
+.btn-link-action:active,
+.btn-solid-nav,
+.btn-solid-nav:hover,
+.btn-solid-nav:active,
+.btn-gradient-submit,
+.btn-gradient-submit:hover,
+.btn-gradient-submit:active,
+.cta,
+.cta:hover,
+.cta:active,
+.profile-avatar-btn,
+.profile-avatar-btn:hover,
+.profile-avatar-btn:active,
+.btn-subtle-refresh,
+.btn-subtle-refresh:hover,
+.btn-subtle-refresh:active,
+.btn-sidebar-compose,
+.btn-sidebar-compose:hover,
+.btn-sidebar-compose:active,
+.folder-tab-btn,
+.folder-tab-btn:hover,
+.folder-tab-btn:active,
+.btn-close-modal,
+.btn-close-modal:hover,
+.btn-close-modal:active,
+.btn-dropdown-copy,
+.btn-dropdown-copy:hover,
+.btn-dropdown-copy:active {
+  transform: none !important;
+  animation: none !important;
+}
+
+/* 3. Disable bouncy pulse keyframes on active tabs */
+.reader-tab.active,
+.folder-tab-btn.active,
+.modal-tab-btn.active {
+  animation: none !important;
+  transform: none !important;
+}
+
+/* 4. Disable focus outlines that cause border jumps */
+*:focus {
+  outline: none !important;
+}
