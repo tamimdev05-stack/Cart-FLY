@@ -57,7 +57,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5.5">
+  <link rel="stylesheet" href="style.css?v=5.6">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
     (function() {
@@ -133,7 +133,7 @@
 
           <!-- FROSTED LIQUID GLASS PROFILE DROPDOWN -->
           <div id="profileDropdown" class="profile-dropdown hidden">
-            <!-- Account Identity -->
+            <!-- 1. Header Identity & Quick Copy -->
             <div class="dropdown-user-card">
               <div class="dropdown-user-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -148,56 +148,76 @@
                   <span class="status-dot"></span> Active
                 </div>
               </div>
-            </div>
-
-                        <!-- Google Drive Linked Info Chip -->
-            <div class="dropdown-gdrive-chip" id="dropdownGdriveChip">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-              </svg>
-              <span class="chip-label">Drive:</span>
-              <span id="dropdownGdriveEmail" class="chip-email">Not Connected</span>
-              <a id="dropdownDriveViewLink" class="btn-open-drive-link" target="_blank" rel="noopener noreferrer" style="display: none;" title="Open database in Google Drive">View ↗</a>
-            </div>
-
-            <!-- Recovery Email Chip -->
-            <div class="dropdown-gdrive-chip" id="dropdownRecoveryChip" style="margin-top: -4px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
-              <span class="chip-label">Recovery:</span>
-              <span id="dropdownRecoveryEmail" class="chip-email">Not Set</span>
-              <button type="button" id="btnEditRecoveryEmail" class="btn-open-drive-link" style="cursor: pointer; display: inline-flex;" title="Set or change recovery email">Edit</button>
-            </div>
-            <!-- Copy Email Button -->
-            <div class="dropdown-copy-section">
-              <button id="dropdownCopyEmailBtn" class="btn-dropdown-copy">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button id="dropdownCopyEmailBtn" class="btn-copy-address-pill" title="Copy email address" aria-label="Copy email address">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                 </svg>
-                <span id="dropdownCopyEmailText">Copy Email Address</span>
+                <span id="dropdownCopyEmailText">Copy</span>
               </button>
             </div>
 
-            <!-- Password Card -->
-            <div class="dropdown-password-card">
-              <div class="pwd-header">
-                <span class="pwd-label">Password</span>
-                <button id="dropdownTogglePassBtn" class="btn-text-action">Show</button>
+            <!-- 2. Unified Account Integrations & Security Card -->
+            <div class="dropdown-settings-card">
+              <!-- Drive Integration Row -->
+              <div class="dropdown-setting-row" id="dropdownGdriveChip">
+                <div class="setting-row-left">
+                  <span class="setting-icon-box drive-ico">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  </span>
+                  <div class="setting-texts">
+                    <span class="chip-label">Drive:</span>
+                    <span id="dropdownGdriveEmail" class="chip-email">Not Connected</span>
+                  </div>
+                </div>
+                <a id="dropdownDriveViewLink" class="btn-setting-action" target="_blank" rel="noopener noreferrer" style="display: none;" title="Open database in Google Drive">View ↗</a>
               </div>
-              <div class="pwd-value-row">
-                <span id="dropdownPasswordText" class="pwd-masked">••••••••••••</span>
-                <button id="dropdownCopyPassBtn" class="btn-copy-icon" title="Copy password">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </button>
+
+              <!-- Recovery Email Row -->
+              <div class="dropdown-setting-row" id="dropdownRecoveryChip">
+                <div class="setting-row-left">
+                  <span class="setting-icon-box recovery-ico">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                  </span>
+                  <div class="setting-texts">
+                    <span class="chip-label">Recovery:</span>
+                    <span id="dropdownRecoveryEmail" class="chip-email">Not Set</span>
+                  </div>
+                </div>
+                <button type="button" id="btnEditRecoveryEmail" class="btn-setting-action" title="Set or change recovery email">Edit</button>
+              </div>
+
+              <!-- Password Row -->
+              <div class="dropdown-setting-row password-setting-row" id="dropdownPasswordRow">
+                <div class="setting-row-left">
+                  <span class="setting-icon-box key-ico">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                  </span>
+                  <div class="setting-texts">
+                    <span class="chip-label">Password:</span>
+                    <span id="dropdownPasswordText" class="setting-password-val pwd-masked">••••••••••••</span>
+                  </div>
+                </div>
+                <div class="setting-actions-inline">
+                  <button id="dropdownTogglePassBtn" class="btn-setting-toggle" title="Show or hide password">Show</button>
+                  <button id="dropdownCopyPassBtn" class="btn-setting-copy" title="Copy password">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Switch Saved Mailboxes -->
+            <!-- 3. Saved Mailboxes -->
             <div class="dropdown-section">
               <div class="dropdown-section-header">
                 <span>Saved Mailboxes</span>
@@ -206,7 +226,7 @@
               <div id="dropdownRecentList" class="dropdown-recent-list"></div>
             </div>
 
-            <!-- Menu Actions -->
+            <!-- 4. Menu Actions -->
             <div class="dropdown-menu-actions">
               <button id="dropdownCreateNewBtn" class="dropdown-menu-item">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -910,6 +930,6 @@
   <!-- TOAST NOTIFICATION -->
   <div id="toast" class="toast"></div>
 
-  <script src="app.js?v=5.5"></script>
+  <script src="app.js?v=5.6"></script>
 </body>
 </html>
