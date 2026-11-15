@@ -4702,3 +4702,47 @@ button:focus,
 #senderAvatar {
   display: none !important;
 }
+
+/* ==========================================================================
+   OFFICIAL MAIL FLUX BRAND LOGO (v4.9)
+   ========================================================================== */
+.logo {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.logo svg {
+  width: 28px !important;
+  height: 28px !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.logo:hover svg {
+  transform: scale(1.06) !important;
+}
+
+.logo-text {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.4px !important;
+  color: #F2F4F8 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.logo-accent,
+.logo b {
+  color: #4F7CFF !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  font-weight: 700 !important;
+}
