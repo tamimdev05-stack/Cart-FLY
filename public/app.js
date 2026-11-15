@@ -725,6 +725,24 @@ function renderActiveSession() {
   }
   if (dropdownTogglePassBtn) dropdownTogglePassBtn.textContent = 'Show';
 
+  // Drive Status in Dropdown (Immediate 0ms render from stored session)
+  const isStoredDriveLinked = !!(gdriveLinkedState || (currentAccount && (currentAccount.gdriveLinked || currentAccount.driveFileId)));
+  if (dropdownGdriveEmail) {
+    dropdownGdriveEmail.textContent = isStoredDriveLinked ? 'Connected' : 'Not Connected';
+    dropdownGdriveEmail.style.color = isStoredDriveLinked ? '#34d399' : '#94a3b8';
+    dropdownGdriveEmail.style.fontWeight = '600';
+    dropdownGdriveEmail.title = isStoredDriveLinked ? 'Google Drive Cloud Storage Connected' : 'Google Drive not connected';
+  }
+  if (dropdownDriveViewLink) {
+    const driveLink = (currentAccount && currentAccount.webViewLink) ? currentAccount.webViewLink : (currentAccount && currentAccount.driveFileId ? `https://drive.google.com/file/d/${currentAccount.driveFileId}/view` : 'https://drive.google.com');
+    if (isStoredDriveLinked) {
+      dropdownDriveViewLink.href = driveLink;
+      dropdownDriveViewLink.style.display = 'inline-flex';
+    } else {
+      dropdownDriveViewLink.style.display = 'none';
+    }
+  }
+
   const dropdownRecoveryEmail = document.getElementById('dropdownRecoveryEmail');
   const btnEditRecoveryEmail = document.getElementById('btnEditRecoveryEmail');
   if (dropdownRecoveryEmail) {
@@ -732,7 +750,7 @@ function renderActiveSession() {
     dropdownRecoveryEmail.textContent = rawRecMail ? maskEmail(rawRecMail) : 'Not Set';
     dropdownRecoveryEmail.title = rawRecMail ? 'Recovery email configured' : 'Click to set recovery email';
     if (btnEditRecoveryEmail) {
-      btnEditRecoveryEmail.textContent = recMail ? 'Change' : '+ Add';
+      btnEditRecoveryEmail.textContent = rawRecMail ? 'Change' : '+ Add';
     }
   }
 
@@ -1959,7 +1977,7 @@ function updateStorageWidget(storage, isLinked) {
   }
 
   // Privacy-First: Never leak personal Google Account address in the client UI
-  const isDriveLinked = isLinked;
+  const isDriveLinked = !!(isLinked || gdriveLinkedState || (currentAccount && (currentAccount.gdriveLinked || currentAccount.driveFileId)));
   if (storageLinkedEmail) {
     storageLinkedEmail.textContent = isDriveLinked ? 'Connected' : 'Not Linked';
     storageLinkedEmail.title = isDriveLinked ? 'Google Drive Cloud Storage Connected' : 'Google Drive not linked';
