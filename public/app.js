@@ -1770,28 +1770,7 @@ function showToast(msg) {
 }
 
 
-// ==========================================================================
-// APPLE LIQUID GLASS TACTILE BUTTON RIPPLE
-// ==========================================================================
-document.addEventListener('pointerdown', (e) => {
-  const btn = e.target.closest('button, .btn-link-action, .reader-tab, .msg-item-card, .btn-dropdown-copy, .dropdown-menu-item');
-  if (!btn) return;
-
-  const rect = btn.getBoundingClientRect();
-  const size = Math.max(rect.width, rect.height) * 1.6;
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-
-  const ripple = document.createElement('span');
-  ripple.className = 'liquid-btn-ripple';
-  ripple.style.width = size + 'px';
-  ripple.style.height = size + 'px';
-  ripple.style.left = x + 'px';
-  ripple.style.top = y + 'px';
-
-  btn.appendChild(ripple);
-  setTimeout(() => ripple.remove(), 700);
-});
+// Click ripple removed per Antigravity design requirements
 
 // ==========================================================================
 // GOOGLE DRIVE & 60 MB STORAGE QUOTA MANAGEMENT (CROSS-DEVICE SYNC)

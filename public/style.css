@@ -3998,3 +3998,23 @@ blockquote {
   border-radius: 4px !important;
   margin: 10px 0 !important;
 }
+
+/* ==========================================================================
+   NO-RIPPLE / CLEAN ANTIGRAVITY CLICK INTERACTION
+   ========================================================================== */
+.liquid-btn-ripple {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.btn-gradient-submit::before, 
+.btn-block::before, 
+.btn-solid-nav::before,
+.cta::before {
+  display: none !important;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent !important;
+}
