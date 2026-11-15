@@ -1634,55 +1634,25 @@ async function deleteMessage(id) {
 }
 
 function triggerManualRefresh() {
-  if (!manualRefreshBtn || manualRefreshBtn.classList.contains('refreshing')) return;
-  manualRefreshBtn.classList.add('refreshing');
+  if (!manualRefreshBtn) return;
+  manualRefreshBtn.classList.add('refreshing', 'is-spinning');
+  if (manualRefreshIcon) {
+    manualRefreshIcon.classList.add('is-spinning');
+    manualRefreshIcon.style.animation = 'cleanRefreshSpin 0.75s linear infinite';
+  }
   const startTime = Date.now();
   const p = currentFolder === 'sent' ? fetchSentMessages() : fetchMessages();
   p.finally(() => {
     const elapsed = Date.now() - startTime;
-    const remaining = Math.max(0, 650 - elapsed);
+    const remaining = Math.max(0, 750 - elapsed);
     setTimeout(() => {
-      manualRefreshBtn.classList.remove('refreshing');
+      manualRefreshBtn.classList.remove('refreshing', 'is-spinning');
+      if (manualRefreshIcon) {
+        manualRefreshIcon.classList.remove('is-spinning');
+        manualRefreshIcon.style.animation = '';
+      }
     }, remaining);
   });
-}
-
-let lastUserActivity = Date.now();
-['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
-  window.addEventListener(evt, () => { lastUserActivity = Date.now(); }, { passive: true });
-});
-
-let syncTimerId = null;
-
-function startSyncLoop() {
-  stopSyncLoop();
-  if (!currentAccount) return;
-
-  // Immediate fetch upon activating session
-  fetchMessages();
-
-  function scheduleNext() {
-    if (!currentAccount) return;
-    const isIdle = (Date.now() - lastUserActivity) > 60000; // 1 min without interaction
-    const delay = isIdle ? 8000 : 4000;
-
-    syncTimerId = setTimeout(async () => {
-      if (!currentAccount) return;
-      if (document.visibilityState === 'visible') {
-        await fetchMessages();
-      }
-      scheduleNext();
-    }, delay);
-  }
-
-  scheduleNext();
-}
-
-function stopSyncLoop() {
-  if (syncTimerId) {
-    clearTimeout(syncTimerId);
-    syncTimerId = null;
-  }
 }
 
 // Immediately refresh when tab is focused

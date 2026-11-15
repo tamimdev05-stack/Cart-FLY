@@ -4749,9 +4749,7 @@ button:focus,
 }
 
 /* ==========================================================================
-   CLEAN & SILKY RELOAD ANIMATION
-   - No hover rotation or jumpy scaling
-   - Smooth, professional spin on active refresh
+   CLEAN & SILKY RELOAD ANIMATION (v5.3)
    ========================================================================== */
 .btn-subtle-refresh {
   width: 32px !important;
@@ -4765,36 +4763,32 @@ button:focus,
   color: #94a3b8 !important;
   cursor: pointer !important;
   flex-shrink: 0 !important;
-  transform: none !important;
-  box-shadow: none !important;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
 }
 
 .btn-subtle-refresh:hover {
-  transform: none !important;
   background: rgba(255, 255, 255, 0.08) !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   color: #f1f5f9 !important;
-  box-shadow: none !important;
 }
 
 .btn-subtle-refresh:active {
-  transform: scale(0.95) !important;
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
 }
 
-.btn-subtle-refresh svg {
-  transform: none !important;
-  transition: none !important;
-}
-
-.btn-subtle-refresh:hover svg {
-  transform: none !important;
+.btn-subtle-refresh svg,
+#manualRefreshIcon {
+  transform-origin: center center !important;
+  transform-box: fill-box !important;
+  display: block !important;
 }
 
 .btn-subtle-refresh.refreshing svg,
-.btn-subtle-refresh.is-spinning svg {
-  animation: cleanRefreshSpin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+.btn-subtle-refresh.is-spinning svg,
+#manualRefreshIcon.is-spinning,
+#manualRefreshIcon.spinning,
+.btn-subtle-refresh.loading svg {
+  animation: cleanRefreshSpin 0.75s linear infinite !important;
 }
 
 @keyframes cleanRefreshSpin {
