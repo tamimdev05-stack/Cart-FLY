@@ -651,12 +651,14 @@ async function loadDomains(forceFresh = false) {
       }
 
       if (modalRegDomainSelect) {
+        const curVal = modalRegDomainSelect.value || currentActiveDomain;
         modalRegDomainSelect.innerHTML = '';
         data.domains.forEach(d => {
-          if (d.isActive) {
+          if (d.isActive !== false) {
             const opt = document.createElement('option');
             opt.value = d.domain;
             opt.textContent = d.domain;
+            if (d.domain === curVal) opt.selected = true;
             modalRegDomainSelect.appendChild(opt);
           }
         });
@@ -1169,6 +1171,16 @@ function switchModalTab(tab) {
 
 function openModal(tab = 'create') {
   switchModalTab(tab);
+  if (modalRegDomainSelect) {
+    if (!modalRegDomainSelect.options || modalRegDomainSelect.options.length === 0) {
+      modalRegDomainSelect.innerHTML = `
+        <option value="mailflux.online" ${currentActiveDomain === 'mailflux.online' ? 'selected' : ''}>mailflux.online</option>
+        <option value="freelancingaid.online" ${currentActiveDomain === 'freelancingaid.online' ? 'selected' : ''}>freelancingaid.online</option>
+      `;
+    } else if (currentActiveDomain) {
+      modalRegDomainSelect.value = currentActiveDomain;
+    }
+  }
   authModal.classList.remove('hidden');
 }
 

@@ -4799,3 +4799,74 @@ button:focus,
     transform: rotate(360deg);
   }
 }
+
+/* ==========================================================================
+   MODAL DOMAIN SELECT FIX (v5.4)
+   ========================================================================== */
+.modal-content .input-field-group {
+  overflow: visible !important;
+}
+
+#modalRegDomainSelect,
+.modal-domain-select,
+.modal-content select#modalRegDomainSelect {
+  width: auto !important;
+  min-width: 145px !important;
+  max-width: 175px !important;
+  height: 38px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 8px !important;
+  color: #60a5fa !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  padding: 0 28px 0 10px !important;
+  margin: 0 8px 0 2px !important;
+  outline: none !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: calc(100% - 10px) center !important;
+  background-size: 12px 12px !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+  transition: all 0.18s ease !important;
+}
+
+#modalRegDomainSelect:hover,
+.modal-domain-select:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(96, 165, 250, 0.45) !important;
+  color: #93c5fd !important;
+}
+
+#modalRegDomainSelect:focus,
+.modal-domain-select:focus {
+  border-color: #3b82f6 !important;
+  background-color: #0f172a !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+
+#modalRegDomainSelect option,
+.modal-domain-select option {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 8px 12px !important;
+}
+
+.modal-content .addon-at-sym,
+.addon-at-sym {
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-weight: 600 !important;
+  padding: 0 4px !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+  user-select: none !important;
+}
