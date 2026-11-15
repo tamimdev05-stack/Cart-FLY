@@ -4133,3 +4133,337 @@ button:focus,
 *:focus {
   outline: none !important;
 }
+
+/* ==========================================================================
+   GOOGLE ANTIGRAVITY AUTH & LANDING PAGE COMPLETE DESIGN POLISH
+   ========================================================================== */
+
+/* 1. Remove cartoon floating envelopes */
+.env {
+  display: none !important;
+}
+
+/* 2. Stage Layout & Proportions */
+.stage-container {
+  max-width: 1200px !important;
+  gap: 48px !important;
+  padding: 40px 32px !important;
+  align-items: center !important;
+}
+
+.stage {
+  max-width: 480px !important;
+}
+
+/* 3. Sleek Antigravity Auth Card */
+.card {
+  background: #0e1017 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 32px 32px 28px !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  animation: none !important;
+}
+
+/* 4. Antigravity Segmented Auth Tabs */
+.tabs {
+  background: #11141e !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  padding: 3px !important;
+  margin-bottom: 22px !important;
+  gap: 2px !important;
+}
+
+.tabs button {
+  padding: 8px 14px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  color: #94a3b8 !important;
+}
+
+.tabs button[aria-selected="true"] {
+  color: #ffffff !important;
+}
+
+.pill {
+  top: 3px !important;
+  bottom: 3px !important;
+  left: 3px !important;
+  width: calc(50% - 3px) !important;
+  border-radius: 6px !important;
+  background: #181c2a !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 5. Headings */
+.head {
+  text-align: left !important;
+  margin-bottom: 20px !important;
+}
+
+.head h2 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #f1f5f9 !important;
+  letter-spacing: -0.02em !important;
+  margin-bottom: 4px !important;
+}
+
+.head p {
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+}
+
+/* 6. Form Inputs (Antigravity Compact & Crisp) */
+form {
+  gap: 16px !important;
+}
+
+.field {
+  gap: 6px !important;
+}
+
+.field label {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+}
+
+.box {
+  height: 48px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  background: #11141e !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #64748b !important;
+  gap: 10px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.box:focus-within {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+}
+
+.box.err {
+  border-color: rgba(239, 68, 68, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.box input {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #f1f5f9 !important;
+  font-family: var(--font-sans) !important;
+}
+
+.box input::placeholder {
+  color: #64748b !important;
+  font-size: 13.5px !important;
+}
+
+.box > svg {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+.eye svg {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+/* 7. Domain Dropdown Button */
+.addr .box {
+  border-radius: 8px 0 0 8px !important;
+  padding-right: 12px !important;
+}
+
+.at {
+  font-size: 15px !important;
+  color: #64748b !important;
+}
+
+.dom > button {
+  height: 48px !important;
+  width: 180px !important;
+  padding: 0 14px !important;
+  border-radius: 0 8px 8px 0 !important;
+  background: #141724 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-left: 0 !important;
+  color: #93c5fd !important;
+  font-size: 12.5px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 500 !important;
+}
+
+.dom > button:hover, .dom.open > button {
+  background: #181c2c !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.menu {
+  background: #0e111a !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7) !important;
+  padding: 4px !important;
+}
+
+.menu li {
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  font-size: 12.5px !important;
+  color: #cbd5e1 !important;
+}
+
+.menu li:hover, .menu li.act {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* 8. Password Strength Meter */
+.meter {
+  position: static !important;
+  margin-top: -8px !important;
+  gap: 4px !important;
+}
+
+.meter i {
+  height: 3px !important;
+  border-radius: 2px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 9. Checkbox & Links */
+.row {
+  font-size: 13px !important;
+}
+
+.chk {
+  color: #94a3b8 !important;
+  font-size: 13px !important;
+}
+
+#si-forgot, .swap a {
+  color: #3b82f6 !important;
+  font-size: 13px !important;
+  text-decoration: none !important;
+}
+
+#si-forgot:hover, .swap a:hover {
+  text-decoration: underline !important;
+  color: #60a5fa !important;
+}
+
+.swap {
+  font-size: 13px !important;
+  color: #64748b !important;
+  text-align: center !important;
+  margin-top: 4px !important;
+}
+
+/* 10. Primary CTA Button */
+.cta {
+  height: 46px !important;
+  background: #2563eb !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+.cta:hover {
+  background: #1d4ed8 !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45) !important;
+  filter: none !important;
+}
+
+/* 11. Left Intro Section */
+.intro h1 {
+  font-size: 44px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1.1 !important;
+  color: #f1f5f9 !important;
+  margin-bottom: 16px !important;
+}
+
+.intro h1 span {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+
+.intro p.lead {
+  font-size: 15.5px !important;
+  color: #94a3b8 !important;
+  line-height: 1.6 !important;
+  margin-bottom: 32px !important;
+}
+
+.feats {
+  gap: 18px !important;
+}
+
+.feats li {
+  gap: 14px !important;
+}
+
+.ico {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 8px !important;
+  background: #11141e !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #3b82f6 !important;
+}
+
+.ico svg {
+  width: 19px !important;
+  height: 19px !important;
+}
+
+.feats strong {
+  font-size: 14.5px !important;
+  font-weight: 600 !important;
+  color: #f1f5f9 !important;
+}
+
+.feats small {
+  font-size: 12.5px !important;
+  color: #64748b !important;
+}
+
+/* 12. Reader Empty State Halo */
+.empty-icon-halo {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 12px !important;
+  background: #121522 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #3b82f6 !important;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15) !important;
+}
+
+.reader-empty-card h3 {
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  color: #f1f5f9 !important;
+}
+
+.reader-empty-card p {
+  font-size: 13px !important;
+  color: #64748b !important;
+}
