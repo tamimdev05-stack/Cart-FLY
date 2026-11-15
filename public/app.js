@@ -1474,7 +1474,6 @@ function renderMessagesList(filterText = '') {
     const timeStr = formatHumanTime(msg.createdAt);
 
     card.innerHTML = `
-      <div class="msg-avatar-icon ${isSent ? 'sent-avatar' : ''}">${escapeHtml(initial)}</div>
       <div class="msg-item-details">
         <div class="msg-row-top">
           <span class="msg-from-name" title="${escapeHtml(contactName)}">${escapeHtml(contactName)}</span>

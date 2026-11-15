@@ -4018,3 +4018,21 @@ blockquote {
 * {
   -webkit-tap-highlight-color: transparent !important;
 }
+
+/* Hide sidebar message avatars for clean Antigravity text-first design */
+.msg-avatar-icon {
+  display: none !important;
+}
+
+.msg-item-card {
+  gap: 0 !important;
+  padding: 10px 14px !important;
+}
+
+.msg-item-details {
+  width: 100% !important;
+}
+
+.msg-from-name {
+  max-width: calc(100% - 85px) !important;
+}
