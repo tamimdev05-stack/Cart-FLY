@@ -22,7 +22,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // LIVE CLOUDFLARE WORKER BACKEND (mailflux.online & freelancingaid.online)
-const CLOUDFLARE_BACKEND = process.env.CLOUDFLARE_BACKEND || 'https://mailflux.online';
+const CLOUDFLARE_BACKEND = process.env.CLOUDFLARE_BACKEND || 'https://mailflux-backend.freelancing-aid.workers.dev';
 
 async function forwardToBackend(req, res) {
   try {
