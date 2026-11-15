@@ -4400,3 +4400,32 @@ button:focus,
     padding: 22px 24px !important;
   }
 }
+
+/* ==========================================================================
+   HIDE PROFILE AVATAR CIRCLE (G / U) IN NAVBAR & DROPDOWN
+   ========================================================================== */
+.avatar-circle,
+#navAvatar,
+.dropdown-avatar-circle,
+#dropdownAvatar {
+  display: none !important;
+}
+
+.profile-avatar-btn {
+  padding: 6px 14px !important;
+  gap: 6px !important;
+}
+
+.profile-username {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #f1f5f9 !important;
+}
+
+.dropdown-user-card {
+  gap: 0 !important;
+}
+
+.dropdown-user-details {
+  width: 100% !important;
+}
