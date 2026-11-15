@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.5">
+  <link rel="stylesheet" href="style.css?v=4.6">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
     (function() {
@@ -368,7 +368,15 @@
           <div id="readerPane" class="reader-pane hidden">
             <div class="reader-header">
               <div class="reader-header-top">
-                <h1 id="readerSubject">Subject</h1>
+                <div class="reader-subject-wrap">
+                  <button type="button" id="btnMobileBackToList" class="btn-mobile-back" aria-label="Back to inbox">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span>Back</span>
+                  </button>
+                  <h1 id="readerSubject">Subject</h1>
+                </div>
                 <button id="btnDeleteMessage" class="btn-delete-msg" title="Delete message">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"></polyline>
@@ -833,6 +841,6 @@
   <!-- TOAST NOTIFICATION -->
   <div id="toast" class="toast"></div>
 
-  <script src="app.js?v=4.5"></script>
+  <script src="app.js?v=4.6"></script>
 </body>
 </html>

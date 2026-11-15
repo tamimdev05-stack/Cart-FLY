@@ -1551,6 +1551,7 @@ async function loadMessage(id) {
     }
   }).catch(() => {});
 
+  document.body.classList.add('mobile-viewing-message');
   readerPlaceholder.classList.add('hidden');
   readerPane.classList.remove('hidden');
 
@@ -1605,6 +1606,7 @@ async function deleteMessage(id) {
       } catch(e) {}
       activeMessageId = null;
       renderMessagesList(getSearchQuery());
+      document.body.classList.remove('mobile-viewing-message');
       readerPane.classList.add('hidden');
       readerPlaceholder.classList.remove('hidden');
     }
@@ -2650,3 +2652,16 @@ if (btnSaveRecoveryEmail) {
   });
 }
 
+
+// Mobile back button listener
+const btnMobileBackToList = document.getElementById('btnMobileBackToList');
+if (btnMobileBackToList) {
+  btnMobileBackToList.addEventListener('click', () => {
+    document.body.classList.remove('mobile-viewing-message');
+    activeMessageId = null;
+    const allCards = messagesContainer ? messagesContainer.querySelectorAll('.msg-item-card') : [];
+    allCards.forEach(c => c.classList.remove('active'));
+    if (readerPlaceholder) readerPlaceholder.classList.remove('hidden');
+    if (readerPane) readerPane.classList.add('hidden');
+  });
+}

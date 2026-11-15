@@ -4133,3 +4133,270 @@ button:focus,
 *:focus {
   outline: none !important;
 }
+
+/* ==========================================================================
+   SMART DEVICE-AWARE AUTO-SIZING & RESPONSIVE ENGINE
+   Seamlessly adapts across Mobile, Tablet, Laptops, Desktops & Ultra-Wides
+   ========================================================================== */
+
+/* Universal fluid viewport & layout setup */
+:root {
+  --nav-height: 52px;
+}
+
+.reader-subject-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.btn-mobile-back {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.btn-mobile-back:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 1. Large Laptops and Desktops (width >= 1024px) */
+@media (min-width: 1024px) {
+  .stage-container {
+    max-width: 1300px !important;
+    gap: clamp(32px, 4vw, 64px) !important;
+    padding: clamp(32px, 4vh, 48px) clamp(24px, 4vw, 48px) !important;
+  }
+  .stage {
+    max-width: 680px !important;
+  }
+  .glass-sidebar {
+    width: clamp(320px, 24vw, 380px) !important;
+  }
+}
+
+/* 2. Medium Screens & Small Laptops (769px to 1023px) */
+@media (max-width: 1023px) and (min-width: 769px) {
+  .stage-container {
+    grid-template-columns: 1fr 1.15fr !important;
+    gap: 24px !important;
+    padding: 24px 20px !important;
+  }
+  .intro h1 {
+    font-size: clamp(32px, 4vw, 44px) !important;
+  }
+  .intro p.lead {
+    font-size: 15px !important;
+    margin-bottom: 24px !important;
+  }
+  .feats {
+    gap: 14px !important;
+  }
+  .ico {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .glass-sidebar {
+    width: 290px !important;
+  }
+  .inbox-workspace {
+    padding: 8px 10px 10px !important;
+    gap: 10px !important;
+  }
+  .nav-search-container {
+    max-width: 280px !important;
+  }
+}
+
+/* 3. Mobile Devices & Small Tablets (width <= 768px) */
+@media (max-width: 768px) {
+  /* Navbar */
+  .navbar {
+    padding: 0 14px !important;
+    height: 50px !important;
+  }
+  .logo {
+    font-size: 18px !important;
+  }
+  .nav-search-container {
+    display: none !important;
+  }
+  .profile-avatar-btn {
+    padding: 4px 8px !important;
+  }
+  .profile-username {
+    display: none !important;
+  }
+
+  /* Landing & Auth Page */
+  .stage-container {
+    grid-template-columns: 1fr !important;
+    min-height: auto !important;
+    padding: 20px 14px 40px !important;
+    gap: 24px !important;
+  }
+  .intro {
+    text-align: center !important;
+  }
+  .intro h1 {
+    font-size: clamp(28px, 7.5vw, 38px) !important;
+    margin-bottom: 12px !important;
+  }
+  .intro p.lead {
+    font-size: 14.5px !important;
+    margin: 0 auto 24px !important;
+    max-width: 100% !important;
+  }
+  .feats {
+    text-align: left !important;
+    gap: 12px !important;
+    max-width: 380px !important;
+    margin: 0 auto !important;
+  }
+  .stage {
+    order: -1 !important;
+    max-width: 100% !important;
+  }
+  .card {
+    padding: 24px 18px 22px !important;
+    border-radius: 18px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .head h2 {
+    font-size: 26px !important;
+  }
+  .head p {
+    font-size: 14px !important;
+  }
+
+  /* Fluid Form Inputs on Mobile */
+  .box, .dom > button, .cta {
+    height: 56px !important;
+  }
+  .box input {
+    font-size: 15px !important;
+  }
+  .addr {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .addr .box {
+    border-radius: 12px !important;
+    border-right: 1px solid var(--line) !important;
+    padding-right: 16px !important;
+    width: 100% !important;
+  }
+  .dom > button {
+    width: 100% !important;
+    border-radius: 12px !important;
+    border-left: 1px solid var(--line) !important;
+    font-size: 13.5px !important;
+  }
+  .menu {
+    width: 100% !important;
+  }
+  .row {
+    font-size: 13.5px !important;
+  }
+
+  /* Smart Split-View Inbox on Mobile (Card List <-> Reader Switcher) */
+  .inbox-workspace {
+    padding: 6px !important;
+    height: calc(100vh - 50px) !important;
+    position: relative !important;
+  }
+
+  /* Default on mobile: Show sidebar list, hide reader pane */
+  .glass-sidebar {
+    width: 100% !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    flex: 1 !important;
+  }
+  .inbox-reader {
+    display: none !important;
+    width: 100% !important;
+    border-radius: 10px !important;
+  }
+
+  /* When viewing an email on mobile: Hide sidebar list, show full reader pane */
+  body.mobile-viewing-message .glass-sidebar {
+    display: none !important;
+  }
+  body.mobile-viewing-message .inbox-reader {
+    display: flex !important;
+    flex: 1 !important;
+    width: 100% !important;
+  }
+  body.mobile-viewing-message .btn-mobile-back {
+    display: inline-flex !important;
+  }
+
+  .reader-header {
+    padding: 12px 14px 10px !important;
+  }
+  .reader-header-top h1 {
+    font-size: 16px !important;
+  }
+  .reader-sender-box {
+    padding: 8px 10px !important;
+  }
+  .reader-body {
+    padding: 10px 10px !important;
+  }
+
+  /* Modals on Mobile */
+  .glass-modal {
+    max-width: 96vw !important;
+    margin: 10px auto !important;
+  }
+  .compose-modal-card {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* 4. Short Viewports / Laptop Screens (height <= 720px) */
+@media (max-height: 720px) {
+  .stage-container {
+    padding-top: 16px !important;
+    padding-bottom: 24px !important;
+  }
+  .intro h1 {
+    font-size: 34px !important;
+    margin-bottom: 10px !important;
+  }
+  .intro p.lead {
+    font-size: 14px !important;
+    margin-bottom: 16px !important;
+  }
+  .feats {
+    gap: 10px !important;
+  }
+  .box, .dom > button, .cta {
+    height: 52px !important;
+  }
+  .tabs {
+    margin-bottom: 16px !important;
+  }
+  .card {
+    padding: 22px 24px !important;
+  }
+}
