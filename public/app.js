@@ -728,9 +728,9 @@ function renderActiveSession() {
   const dropdownRecoveryEmail = document.getElementById('dropdownRecoveryEmail');
   const btnEditRecoveryEmail = document.getElementById('btnEditRecoveryEmail');
   if (dropdownRecoveryEmail) {
-    const recMail = currentAccount.recoveryEmail || currentAccount.driveEmail || '';
-    dropdownRecoveryEmail.textContent = recMail || 'Not Set';
-    dropdownRecoveryEmail.title = recMail ? `Recovery Email: ${recMail}` : 'Click edit to set recovery email';
+    const rawRecMail = currentAccount.recoveryEmail || '';
+    dropdownRecoveryEmail.textContent = rawRecMail ? maskEmail(rawRecMail) : 'Not Set';
+    dropdownRecoveryEmail.title = rawRecMail ? 'Recovery email configured' : 'Click to set recovery email';
     if (btnEditRecoveryEmail) {
       btnEditRecoveryEmail.textContent = recMail ? 'Change' : '+ Add';
     }
@@ -1689,6 +1689,20 @@ function formatHumanTime(iso) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+function maskEmail(email) {
+  if (!email || typeof email !== 'string') return '';
+  const parts = email.split('@');
+  if (parts.length !== 2) return '••••••';
+  const name = parts[0];
+  const domain = parts[1];
+  if (name.length <= 2) {
+    return name[0] + '•••@' + domain;
+  }
+  const start = name.slice(0, 2);
+  const end = name.slice(-1);
+  return `${start}••••${end}@${domain}`;
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return str
@@ -1944,14 +1958,20 @@ function updateStorageWidget(storage, isLinked) {
     gdriveStatusPill.style.color = isLinked ? '#34D399' : '#F59E0B';
   }
 
-  // Display which Google Account is linked
-  const linkedGmail = (currentAccount && currentAccount.driveEmail) ? currentAccount.driveEmail : (isLinked ? 'Connected' : 'Not Linked');
+  // Privacy-First: Never leak personal Google Account address in the client UI
+  const isDriveLinked = isLinked;
   if (storageLinkedEmail) {
-    storageLinkedEmail.textContent = linkedGmail;
-    storageLinkedEmail.title = isLinked ? `Linked Google Account: ${linkedGmail}` : 'Google Drive not linked';
+    storageLinkedEmail.textContent = isDriveLinked ? 'Connected' : 'Not Linked';
+    storageLinkedEmail.title = isDriveLinked ? 'Google Drive Cloud Storage Connected' : 'Google Drive not linked';
   }
   if (dropdownGdriveEmail) {
-    dropdownGdriveEmail.textContent = linkedGmail;
+    dropdownGdriveEmail.textContent = isDriveLinked ? 'Connected' : 'Not Connected';
+    if (isDriveLinked) {
+      dropdownGdriveEmail.style.color = '#34d399';
+    } else {
+      dropdownGdriveEmail.style.color = '#94a3b8';
+    }
+    dropdownGdriveEmail.title = isDriveLinked ? 'Google Drive Cloud Storage Connected' : 'Google Drive not connected';
   }
 
   // Open in Google Drive Link
@@ -2299,7 +2319,7 @@ async function connectGoogleDriveAccount() {
       gdriveModal.style.display = 'none';
     }
 
-    showToast(`🎉 Google Drive connected (${driveEmail})! Permanent auto-sync enabled.`);
+    showToast('🎉 Google Drive connected! Permanent cloud backup enabled.');
     updateStorageWidget(mailboxStorageData, true);
     await syncMailboxToGoogleDrive(true);
 

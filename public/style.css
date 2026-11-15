@@ -4746,3 +4746,10 @@ button:focus,
   background-clip: unset !important;
   font-weight: 700 !important;
 }
+
+/* Privacy Enhancement: Clean Drive & Recovery status typography */
+.chip-email {
+  font-family: inherit !important;
+  font-size: 12px !important;
+  letter-spacing: 0.01em !important;
+}
