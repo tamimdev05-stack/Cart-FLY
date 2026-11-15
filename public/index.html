@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.7">
+  <link rel="stylesheet" href="style.css?v=4.8">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
     (function() {
@@ -76,7 +76,13 @@
         <!-- Logged In Profile Avatar Button -->
         <div id="profileContainer" class="profile-container hidden">
           <button id="profileBtn" class="profile-avatar-btn" aria-expanded="false" title="Account settings">
-            <div class="avatar-circle" id="navAvatar">U</div>
+            <span class="profile-user-icon" aria-hidden="true">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </span>
+            <span id="navAvatar" style="display:none !important;"></span>
             <span class="profile-username" id="navUsername">User</span>
             <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
@@ -87,7 +93,13 @@
           <div id="profileDropdown" class="profile-dropdown hidden">
             <!-- Account Identity -->
             <div class="dropdown-user-card">
-              <div class="dropdown-avatar-circle" id="dropdownAvatar">U</div>
+              <div class="dropdown-user-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <span id="dropdownAvatar" style="display:none !important;"></span>
               <div class="dropdown-user-details">
                 <div class="dropdown-email" id="dropdownEmail">user@domain.com</div>
                 <div class="dropdown-status-badge">
@@ -299,32 +311,41 @@
         <!-- FROSTED SIDEBAR -->
         <aside class="inbox-sidebar glass-sidebar">
           <div class="sidebar-controls">
-            <div class="sidebar-title-bar">
+            <!-- Row 1: Dedicated Full-Width Compose Button -->
+            <button type="button" id="btnOpenCompose" class="btn-sidebar-compose" title="Compose new email">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Compose Email</span>
+            </button>
+
+            <!-- Row 2: Folder Navigation & Quick Refresh -->
+            <div class="sidebar-folder-bar">
               <div class="folder-nav-tabs">
                 <button type="button" id="tabInbox" class="folder-tab-btn active" title="Inbox">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                  </svg>
                   <span class="folder-tab-label">Inbox</span>
                   <span id="unreadBadge" class="badge-count">0</span>
                 </button>
                 <button type="button" id="tabSent" class="folder-tab-btn" title="Sent Mail">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
                   <span class="folder-tab-label">Sent</span>
                   <span id="sentBadge" class="badge-count hidden">0</span>
                 </button>
               </div>
-              <div class="sidebar-actions-group">
-                <button type="button" id="btnOpenCompose" class="btn-sidebar-compose" title="Compose new email">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 20h9"></path>
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                  </svg>
-                  <span>Compose</span>
-                </button>
-                <button type="button" id="manualRefreshBtn" class="btn-subtle-refresh" title="Refresh inbox">
-                  <svg id="manualRefreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path>
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                  </svg>
-                </button>
-              </div>
+              <button type="button" id="manualRefreshBtn" class="btn-subtle-refresh" title="Refresh inbox">
+                <svg id="manualRefreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -841,6 +862,6 @@
   <!-- TOAST NOTIFICATION -->
   <div id="toast" class="toast"></div>
 
-  <script src="app.js?v=4.7"></script>
+  <script src="app.js?v=4.8"></script>
 </body>
 </html>

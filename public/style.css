@@ -4429,3 +4429,276 @@ button:focus,
 .dropdown-user-details {
   width: 100% !important;
 }
+
+/* ==========================================================================
+   MAILFLUX EXECUTIVE REFINEMENT (v4.8)
+   ========================================================================== */
+
+/* 1. TOP NAVBAR PROFILE PILL & DROPDOWN */
+.profile-avatar-btn {
+  height: 36px !important;
+  padding: 0 12px 0 6px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+  transition: background 0.15s ease, border-color 0.15s ease !important;
+  cursor: pointer !important;
+}
+
+.profile-avatar-btn:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.profile-user-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(99, 102, 241, 0.18));
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dropdown-user-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(99, 102, 241, 0.2));
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-username {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #f1f5f9 !important;
+  letter-spacing: -0.01em !important;
+  max-width: 140px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* 2. SIDEBAR HEADER CONTROLS (2-ROW SPACIOUS LAYOUT) */
+.sidebar-controls {
+  padding: 12px 14px 10px 14px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 9px !important;
+}
+
+.btn-sidebar-compose {
+  width: 100% !important;
+  height: 38px !important;
+  border-radius: 9px !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35) !important;
+  cursor: pointer !important;
+  letter-spacing: -0.01em !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+}
+
+.btn-sidebar-compose:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.sidebar-folder-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.folder-nav-tabs {
+  display: inline-flex !important;
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  padding: 3px !important;
+  border-radius: 9px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  gap: 3px !important;
+  flex: 1 !important;
+}
+
+.folder-tab-btn {
+  flex: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 5px 10px !important;
+  border-radius: 7px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: color 0.15s ease, background 0.15s ease !important;
+}
+
+.folder-tab-btn:hover {
+  color: #f1f5f9 !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.folder-tab-btn.active {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
+
+.folder-tab-btn .badge-count {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 1px 6px !important;
+  border-radius: 9999px !important;
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.btn-subtle-refresh {
+  width: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-subtle-refresh:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #f1f5f9 !important;
+}
+
+/* 3. MESSAGE ITEM CARDS - EXECUTIVE SPACING & CLEAN BORDERS */
+.messages-container {
+  padding: 8px 10px !important;
+  gap: 5px !important;
+}
+
+.msg-item-card {
+  padding: 11px 13px !important;
+  border-radius: 9px !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-left: 3px solid transparent !important;
+  cursor: pointer !important;
+  transition: background 0.12s ease, border-color 0.12s ease !important;
+  box-sizing: border-box !important;
+  margin-bottom: 3px !important;
+}
+
+.msg-item-card:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-left-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.msg-item-card.active {
+  background: rgba(59, 130, 246, 0.09) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+  border-left: 3px solid #3b82f6 !important;
+  box-shadow: inset 0 0 14px rgba(59, 130, 246, 0.05) !important;
+}
+
+.msg-row-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 2px !important;
+}
+
+.msg-from-name {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #e2e8f0 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.msg-item-card.unread .msg-from-name {
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+.msg-time-label {
+  font-size: 11px !important;
+  color: #64748b !important;
+}
+
+.msg-item-card.unread .msg-time-label {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+}
+
+.msg-subject-line {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  margin-bottom: 2px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.msg-item-card.unread .msg-subject-line {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+.msg-snippet-text {
+  font-size: 11.5px !important;
+  color: #475569 !important;
+  line-height: 1.35 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.unread-glow-dot {
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: #3b82f6 !important;
+  box-shadow: 0 0 8px #3b82f6 !important;
+  display: inline-block !important;
+  margin-left: 6px !important;
+}
+
+/* 4. SENDER AVATAR & HEADER IN READER */
+.sender-avatar,
+#senderAvatar {
+  display: none !important;
+}
