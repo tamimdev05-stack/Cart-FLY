@@ -1662,17 +1662,23 @@ form[hidden] {
 }
 
 .empty-icon-halo {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.18);
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  background: rgba(79, 124, 255, 0.08);
+  border: 1px solid rgba(79, 124, 255, 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #60A5FA;
-  margin: 0 auto 20px;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  margin: 0 auto 22px;
+  box-shadow: 0 4px 24px -2px rgba(79, 124, 255, 0.16), inset 0 0 16px rgba(79, 124, 255, 0.05);
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.empty-icon-halo:hover {
+  transform: translateY(-2px);
+  border-color: rgba(79, 124, 255, 0.38);
+  box-shadow: 0 6px 28px -2px rgba(79, 124, 255, 0.24), inset 0 0 20px rgba(79, 124, 255, 0.08);
 }
 
 .reader-empty-card h3 {
